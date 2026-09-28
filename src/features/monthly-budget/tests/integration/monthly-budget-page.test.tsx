@@ -17,6 +17,9 @@ import { MonthlyBudgetPage } from "@/features/monthly-budget/monthly-budget-page
 type BudgetRow = {
   salary_ars: number | null
   exchange_rate_value: number | null
+  exchange_rate_source?: string | null
+  exchange_rate_fetched_at?: string | null
+  exchange_rate_source_updated_at?: string | null
 }
 
 const { authMock, fromMock, upsertMock, scenario } = vi.hoisted(() => {
@@ -25,13 +28,20 @@ const { authMock, fromMock, upsertMock, scenario } = vi.hoisted(() => {
   type StoredBudget = {
     salary_ars: number | null
     exchange_rate_value: number | null
+    exchange_rate_source: string | null
+    exchange_rate_fetched_at: string | null
+    exchange_rate_source_updated_at: string | null
   }
 
   type UpsertPayload = {
     user_id: string
     year: number
     month: number
-    salary_ars: number
+    salary_ars?: number
+    exchange_rate_value?: number
+    exchange_rate_source?: string
+    exchange_rate_fetched_at?: string
+    exchange_rate_source_updated_at?: string | null
   }
 
   const scenario = {
@@ -46,6 +56,11 @@ const { authMock, fromMock, upsertMock, scenario } = vi.hoisted(() => {
 
   const upsertMock = vi.fn()
 
+  const isOptionalType = (
+    value: unknown,
+    expected: "number" | "string"
+  ): boolean => value === undefined || typeof value === expected
+
   const isUpsertPayload = (payload: unknown): payload is UpsertPayload => {
     if (typeof payload !== "object" || payload === null) {
       return false
@@ -56,8 +71,36 @@ const { authMock, fromMock, upsertMock, scenario } = vi.hoisted(() => {
     return (
       typeof candidate.year === "number" &&
       typeof candidate.month === "number" &&
-      typeof candidate.salary_ars === "number"
+      isOptionalType(candidate.salary_ars, "number") &&
+      isOptionalType(candidate.exchange_rate_value, "number") &&
+      isOptionalType(candidate.exchange_rate_source, "string") &&
+      isOptionalType(candidate.exchange_rate_fetched_at, "string")
     )
+  }
+
+  /**
+   * Postgres only updates the columns the upsert payload carries, so the mock
+   * merges instead of replacing: that is what keeps a saved salary alive when
+   * only the exchange rate is written.
+   */
+  const mergeStoredBudget = (payload: UpsertPayload) => {
+    const stored = scenario.budgets.get(budgetKey(payload.year, payload.month))
+
+    scenario.budgets.set(budgetKey(payload.year, payload.month), {
+      salary_ars: payload.salary_ars ?? stored?.salary_ars ?? null,
+      exchange_rate_value:
+        payload.exchange_rate_value ?? stored?.exchange_rate_value ?? null,
+      exchange_rate_source:
+        payload.exchange_rate_source ?? stored?.exchange_rate_source ?? null,
+      exchange_rate_fetched_at:
+        payload.exchange_rate_fetched_at ??
+        stored?.exchange_rate_fetched_at ??
+        null,
+      exchange_rate_source_updated_at:
+        "exchange_rate_source_updated_at" in payload
+          ? (payload.exchange_rate_source_updated_at ?? null)
+          : (stored?.exchange_rate_source_updated_at ?? null),
+    })
   }
 
   const resolveResult = (
@@ -106,10 +149,7 @@ const { authMock, fromMock, upsertMock, scenario } = vi.hoisted(() => {
         upsertMock(table, payload, options)
 
         if (scenario.upsertError === null && isUpsertPayload(payload)) {
-          scenario.budgets.set(budgetKey(payload.year, payload.month), {
-            salary_ars: payload.salary_ars,
-            exchange_rate_value: null,
-          })
+          mergeStoredBudget(payload)
         }
 
         return builder
@@ -144,7 +184,14 @@ vi.mock("@/shared/lib/supabase/client", () => ({
 }))
 
 const setBudget = (year: number, month: number, row: BudgetRow) => {
-  scenario.budgets.set(`${year}-${month}`, row)
+  scenario.budgets.set(`${year}-${month}`, {
+    salary_ars: row.salary_ars,
+    exchange_rate_value: row.exchange_rate_value,
+    exchange_rate_source: row.exchange_rate_source ?? null,
+    exchange_rate_fetched_at: row.exchange_rate_fetched_at ?? null,
+    exchange_rate_source_updated_at:
+      row.exchange_rate_source_updated_at ?? null,
+  })
 }
 
 const renderBudgetPage = () => {
@@ -331,5 +378,197 @@ describe("MonthlyBudgetPage", () => {
       )
     ).toBeDefined()
     expect(screen.queryByText(/database exploded/)).toBeNull()
+  })
+
+  describe("cotización del mes", () => {
+    const usdExpense = {
+      id: "other-1",
+      concept: "Hosting",
+      amount: 100,
+      currency: "usd",
+    }
+
+    const stubFetch = (
+      result: { venta: number; fechaActualizacion: string } | Error
+    ) => {
+      const fetchMock = vi.fn(() =>
+        result instanceof Error
+          ? Promise.reject(result)
+          : Promise.resolve({
+              ok: true,
+              status: 200,
+              json: () => Promise.resolve(result),
+            })
+      )
+
+      vi.stubGlobal("fetch", fetchMock)
+
+      return fetchMock
+    }
+
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    it("aplica la cotización consultada recién después de confirmar", async () => {
+      setBudget(2026, 3, {
+        salary_ars: 1_000_000,
+        exchange_rate_value: 1640,
+        exchange_rate_source: "api",
+        exchange_rate_fetched_at: "2026-03-01T12:00:00.000Z",
+        exchange_rate_source_updated_at: "2026-03-01T11:00:00.000Z",
+      })
+      scenario.otherExpenses = [usdExpense]
+      stubFetch({
+        venta: 2008.5,
+        fechaActualizacion: "2026-03-10T18:55:00.000Z",
+      })
+
+      renderBudgetPage()
+
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Actualizar cotización" })
+      )
+
+      expect(await screen.findByText("¿Aplicar esta cotización?")).toBeDefined()
+      // La vista previa compara el gasto conocido antes y después: 100 USD.
+      expect(screen.getByText(/2\.008,50 por USD/)).toBeDefined()
+      expect(screen.getByText(/164\.000,00.+200\.850,00/)).toBeDefined()
+      expect(upsertMock).not.toHaveBeenCalled()
+
+      fireEvent.click(screen.getByRole("button", { name: "Confirmar" }))
+
+      await waitFor(() => {
+        expect(upsertMock).toHaveBeenCalledWith(
+          "monthly_budgets",
+          expect.objectContaining({
+            user_id: "00000000-0000-0000-0000-000000000001",
+            year: 2026,
+            month: 3,
+            exchange_rate_value: 2008.5,
+            exchange_rate_source: "api",
+            exchange_rate_source_updated_at: "2026-03-10T18:55:00.000Z",
+          }),
+          { onConflict: "user_id,year,month" }
+        )
+      })
+
+      const [, payload] = upsertMock.mock.calls[0] as [
+        string,
+        Record<string, unknown>,
+        unknown,
+      ]
+
+      // El sueldo ya guardado no viaja en el payload de la cotización.
+      expect("salary_ars" in payload).toBe(false)
+      expect(typeof payload.exchange_rate_fetched_at).toBe("string")
+
+      expect(
+        (await screen.findAllByText(/2\.008,50 por USD/)).length
+      ).toBeGreaterThan(0)
+    })
+
+    it("conserva la cotización anterior cuando falla la consulta", async () => {
+      setBudget(2026, 3, {
+        salary_ars: 1_000_000,
+        exchange_rate_value: 1640,
+        exchange_rate_source: "api",
+        exchange_rate_fetched_at: "2026-03-01T12:00:00.000Z",
+        exchange_rate_source_updated_at: "2026-03-01T11:00:00.000Z",
+      })
+      scenario.otherExpenses = [usdExpense]
+      stubFetch(new Error("network down"))
+
+      renderBudgetPage()
+
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Actualizar cotización" })
+      )
+
+      expect(
+        await screen.findByText(
+          "No pudimos consultar la cotización. Intentá de nuevo en un momento."
+        )
+      ).toBeDefined()
+      expect(screen.queryByText("¿Aplicar esta cotización?")).toBeNull()
+      expect(screen.getByText(/1\.640,00 por USD/)).toBeDefined()
+      expect(upsertMock).not.toHaveBeenCalled()
+    })
+
+    it("guarda una cotización manual después de ver su impacto", async () => {
+      setBudget(2026, 3, { salary_ars: 1_000_000, exchange_rate_value: 1640 })
+      scenario.otherExpenses = [usdExpense]
+
+      renderBudgetPage()
+
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Editar manualmente" })
+      )
+
+      const rateField = await screen.findByLabelText(
+        "Cotización manual (ARS por USD)"
+      )
+      fireEvent.change(rateField, { target: { value: "0" } })
+      fireEvent.click(screen.getByRole("button", { name: "Ver impacto" }))
+
+      expect(
+        await screen.findByText("Ingresá una cotización mayor que cero.")
+      ).toBeDefined()
+      expect(screen.queryByText("¿Aplicar esta cotización?")).toBeNull()
+
+      fireEvent.change(rateField, { target: { value: "2500" } })
+      fireEvent.click(screen.getByRole("button", { name: "Ver impacto" }))
+
+      expect(await screen.findByText("¿Aplicar esta cotización?")).toBeDefined()
+      expect(screen.getByText(/2\.500,00 por USD/)).toBeDefined()
+
+      fireEvent.click(screen.getByRole("button", { name: "Confirmar" }))
+
+      await waitFor(() => {
+        expect(upsertMock).toHaveBeenCalledWith(
+          "monthly_budgets",
+          expect.objectContaining({
+            year: 2026,
+            month: 3,
+            exchange_rate_value: 2500,
+            exchange_rate_source: "manual",
+            exchange_rate_source_updated_at: null,
+          }),
+          { onConflict: "user_id,year,month" }
+        )
+      })
+    })
+
+    it("no cambia nada cuando se cancela la vista previa", async () => {
+      setBudget(2026, 3, {
+        salary_ars: 1_000_000,
+        exchange_rate_value: 1640,
+        exchange_rate_source: "manual",
+        exchange_rate_fetched_at: "2026-03-01T12:00:00.000Z",
+      })
+      scenario.otherExpenses = [usdExpense]
+      stubFetch({
+        venta: 2008.5,
+        fechaActualizacion: "2026-03-10T18:55:00.000Z",
+      })
+
+      renderBudgetPage()
+
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Actualizar cotización" })
+      )
+
+      expect(await screen.findByText("¿Aplicar esta cotización?")).toBeDefined()
+
+      fireEvent.click(screen.getByRole("button", { name: "Cancelar" }))
+
+      await waitFor(() => {
+        expect(screen.queryByText("¿Aplicar esta cotización?")).toBeNull()
+      })
+
+      expect(upsertMock).not.toHaveBeenCalled()
+      expect(screen.getByText(/1\.640,00 por USD/)).toBeDefined()
+      expect(screen.queryByText(/2\.008,50 por USD/)).toBeNull()
+    })
   })
 })
