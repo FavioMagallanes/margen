@@ -1,8 +1,11 @@
 import { createBrowserRouter, redirect } from "react-router"
 
-import { AppShell } from "@/app/layout/AppShell"
-import { PlaceholderPage } from "@/app/pages/PlaceholderPage"
-import { MonthlyBudgetPage } from "@/features/monthly-budget/MonthlyBudgetPage"
+import { AppShell } from "@/app/layout/app-shell"
+import { PlaceholderPage } from "@/app/pages/placeholder-page"
+import { GuestOnlyRoute } from "@/features/auth/components/guest-only-route"
+import { LoginPage } from "@/features/auth/components/login-page"
+import { RequireAuth } from "@/features/auth/components/require-auth"
+import { MonthlyBudgetPage } from "@/features/monthly-budget/monthly-budget-page"
 import { getCurrentPeriod } from "@/shared/lib/period"
 
 // Resolved per navigation so a session open across midnight still lands on today.
@@ -15,19 +18,38 @@ const redirectToCurrentMonth = () => {
 export const router = createBrowserRouter([
   { path: "/", loader: redirectToCurrentMonth },
   {
-    path: "/months/:year/:month",
-    element: <AppShell />,
-    children: [
-      { index: true, element: <MonthlyBudgetPage /> },
-      { path: "cards", element: <PlaceholderPage title="Tarjetas" /> },
-      { path: "loans", element: <PlaceholderPage title="Préstamos" /> },
-      { path: "recurring", element: <PlaceholderPage title="Recurrentes" /> },
-    ],
+    path: "/login",
+    element: (
+      <GuestOnlyRoute>
+        <LoginPage />
+      </GuestOnlyRoute>
+    ),
   },
   {
-    // Reports span a range of months (RF-11), so they stay outside the month layout.
-    path: "/reports",
-    element: <AppShell />,
-    children: [{ index: true, element: <PlaceholderPage title="Reportes" /> }],
+    // Everything below this layout route requires a Supabase session (RF-13).
+    element: <RequireAuth />,
+    children: [
+      {
+        path: "/months/:year/:month",
+        element: <AppShell />,
+        children: [
+          { index: true, element: <MonthlyBudgetPage /> },
+          { path: "cards", element: <PlaceholderPage title="Tarjetas" /> },
+          { path: "loans", element: <PlaceholderPage title="Préstamos" /> },
+          {
+            path: "recurring",
+            element: <PlaceholderPage title="Recurrentes" />,
+          },
+        ],
+      },
+      {
+        // Reports span a range of months (RF-11), so they stay outside the month layout.
+        path: "/reports",
+        element: <AppShell />,
+        children: [
+          { index: true, element: <PlaceholderPage title="Reportes" /> },
+        ],
+      },
+    ],
   },
 ])

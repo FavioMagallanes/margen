@@ -1,10 +1,11 @@
 import { Outlet, useParams } from "react-router"
 
+import { LogoutButton } from "@/features/auth/components/logout-button"
 import { getCurrentPeriod, parsePeriod } from "@/shared/lib/period"
 
-import { MonthSwitcher } from "./MonthSwitcher"
-import { BottomNav, Sidebar } from "./Sidebar"
-import { ThemeToggle } from "./ThemeToggle"
+import { MonthSwitcher } from "./month-switcher"
+import { BottomNav, Sidebar } from "./sidebar"
+import { ThemeToggle } from "./theme-toggle"
 
 export const AppShell = () => {
   const { year, month } = useParams()
@@ -24,7 +25,10 @@ export const AppShell = () => {
 
           {routePeriod ? <MonthSwitcher period={routePeriod} /> : <span />}
 
-          <ThemeToggle />
+          <div className="flex items-center gap-1">
+            <LogoutButton />
+            <ThemeToggle />
+          </div>
         </header>
 
         <main className="px-4 pt-6 pb-24 lg:px-8 lg:pb-10">
