@@ -19,8 +19,14 @@ export const AppShell = () => {
 
       <div className="lg:pl-56">
         <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b border-border bg-background/80 px-4 backdrop-blur lg:px-8">
-          <span className="text-sm font-semibold tracking-tight lg:hidden">
-            Margen
+          <span className="flex items-center gap-2 lg:hidden">
+            <img
+              src="/margen-web.svg"
+              alt=""
+              aria-hidden="true"
+              className="size-6 rounded-[0.3rem]"
+            />
+            <span className="text-sm font-semibold tracking-tight">Margen</span>
           </span>
 
           {routePeriod ? <MonthSwitcher period={routePeriod} /> : <span />}

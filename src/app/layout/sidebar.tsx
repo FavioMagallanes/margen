@@ -61,7 +61,12 @@ type NavProps = {
 export const Sidebar = ({ period }: NavProps) => (
   <aside className="fixed inset-y-0 left-0 hidden w-56 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
     <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
-      <span className="size-2 rounded-full bg-sidebar-primary" />
+      <img
+        src="/margen-web.svg"
+        alt=""
+        aria-hidden="true"
+        className="size-6 rounded-[0.3rem]"
+      />
       <span className="text-sm font-semibold tracking-tight">Margen</span>
     </div>
 
