@@ -89,11 +89,11 @@ export const MonthlyBudgetPage = () => {
           </p>
 
           {salaryArs === null ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-base font-medium text-foreground">
               Sin presupuesto definido
             </p>
           ) : (
-            <p className="font-mono text-sm text-foreground">
+            <p className="font-mono text-xl font-semibold tracking-tight text-foreground">
               {formatArs(salaryArs)}
             </p>
           )}
@@ -130,7 +130,7 @@ export const MonthlyBudgetPage = () => {
           <p className="text-xs text-muted-foreground">
             Gastos conocidos del mes
           </p>
-          <p className="font-mono text-sm text-foreground">
+          <p className="font-mono text-xl font-semibold tracking-tight text-foreground">
             {formatArs(totalKnownArs)}
           </p>
         </CardContent>
@@ -142,7 +142,7 @@ export const MonthlyBudgetPage = () => {
 
           {salaryArs === null ? (
             // RF-01: without a salary there is no definitive available figure.
-            <p className="text-sm text-muted-foreground">
+            <p className="text-base text-foreground">
               Cargá el sueldo del mes para ver el disponible.
             </p>
           ) : (

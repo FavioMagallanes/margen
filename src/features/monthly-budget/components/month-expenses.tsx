@@ -56,7 +56,7 @@ export const MonthExpenses = ({
     return (
       <Card>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-foreground">
             Todavía no cargaste gastos para este mes.
           </p>
         </CardContent>
@@ -75,13 +75,14 @@ export const MonthExpenses = ({
               <p className="text-xs text-muted-foreground">
                 {groupTotal.group}
               </p>
-              <p className="font-mono text-xl font-medium">
+              <p className="font-mono text-xl font-semibold tracking-tight text-foreground">
                 {formatArs(groupTotal.totalKnownArs)}
               </p>
               {groupTotal.isComplete ? null : (
-                // Repeated once per group card, so it stays muted text instead
-                // of a full alert box.
-                <p className="text-xs text-muted-foreground">
+                // Repeated once per group card, so it stays plain text instead
+                // of a full alert box, one size step above the group label so
+                // it does not read as part of it.
+                <p className="text-sm text-foreground">
                   Total incompleto: faltan datos de este grupo.
                 </p>
               )}
