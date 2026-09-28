@@ -2,23 +2,33 @@ import { Decimal } from "decimal.js"
 import type { FieldErrors, Resolver } from "react-hook-form"
 import * as z from "zod"
 
+import {
+  formatAmountInputValue,
+  parseAmountInputValue,
+} from "@/shared/lib/amount-input"
+
 const SALARY_MESSAGE =
   "Ingresá un importe en pesos, sin signos y hasta 2 decimales"
 
-// Only non-negative amounts: a salary is either unset (null) or zero or more.
-const SALARY_PATTERN = /^\d{1,12}([.,]\d{1,2})?$/
+// A salary is either unset (handled outside the form) or zero or more.
+const isSalaryAmount = (salary: string): boolean => {
+  const amount = parseAmountInputValue(salary)
+
+  return amount !== null && amount.greaterThanOrEqualTo(0)
+}
 
 export const salarySchema = z.object({
-  salary: z.string().trim().regex(SALARY_PATTERN, SALARY_MESSAGE),
+  salary: z.string().refine(isSalaryAmount, SALARY_MESSAGE),
 })
 
 export type SalaryFormValues = z.infer<typeof salarySchema>
 
-export const parseSalaryArs = (salary: string): number =>
-  new Decimal(salary.trim().replace(",", ".")).toNumber()
-
+/**
+ * Prefills the field with the same AR display string AmountInput produces, so
+ * an already saved salary round-trips through the shared formatter.
+ */
 export const formatSalaryInput = (salaryArs: number): string =>
-  new Decimal(salaryArs).toFixed(2)
+  formatAmountInputValue(new Decimal(salaryArs).toFixed(2).replace(".", ","))
 
 const isSalaryField = (field: unknown): field is keyof SalaryFormValues =>
   field === "salary"

@@ -1,15 +1,12 @@
-import { useForm } from "react-hook-form"
+import { Controller, useForm } from "react-hook-form"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { parseAmountInputValue } from "@/shared/lib/amount-input"
+import { AmountInput } from "@/shared/ui/amount-input"
 
-import {
-  parseSalaryArs,
-  type SalaryFormValues,
-  salaryResolver,
-} from "../model/salary-form"
+import { type SalaryFormValues, salaryResolver } from "../model/salary-form"
 
 type SalaryFormProps = {
   defaultSalary: string
@@ -28,7 +25,7 @@ export const SalaryForm = ({
   onSave,
 }: SalaryFormProps) => {
   const {
-    register,
+    control,
     handleSubmit,
     formState: { errors },
   } = useForm<SalaryFormValues>({
@@ -37,7 +34,14 @@ export const SalaryForm = ({
   })
 
   const onSubmit = handleSubmit(({ salary }) => {
-    onSave(parseSalaryArs(salary))
+    const salaryArs = parseAmountInputValue(salary)
+
+    // The resolver already rejected an unparseable salary; this only narrows it.
+    if (salaryArs === null) {
+      return
+    }
+
+    onSave(salaryArs.toNumber())
   })
 
   return (
@@ -47,14 +51,21 @@ export const SalaryForm = ({
       </Label>
 
       <div className="flex items-start gap-2">
-        <Input
-          id="monthly-salary"
-          type="text"
-          inputMode="decimal"
-          autoComplete="off"
-          className="w-48 font-mono"
-          aria-invalid={errors.salary !== undefined}
-          {...register("salary")}
+        <Controller
+          control={control}
+          name="salary"
+          render={({ field }) => (
+            <AmountInput
+              id="monthly-salary"
+              autoComplete="off"
+              className="w-48 font-mono"
+              aria-invalid={errors.salary !== undefined}
+              name={field.name}
+              value={field.value}
+              onBlur={field.onBlur}
+              onValueChange={(formattedValue) => field.onChange(formattedValue)}
+            />
+          )}
         />
         <Button type="submit" disabled={isSaving}>
           {isSaving ? "Guardando…" : "Guardar sueldo"}
