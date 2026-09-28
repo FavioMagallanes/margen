@@ -235,12 +235,7 @@ export type Database = {
         Returns: string
       }
       create_card_purchases_batch: {
-        Args: {
-          p_card: string
-          p_items: Json
-          p_month: number
-          p_year: number
-        }
+        Args: { p_card: string; p_items: Json; p_month: number; p_year: number }
         Returns: undefined
       }
       create_loan: {
