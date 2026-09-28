@@ -231,6 +231,22 @@ export type Database = {
         }
         Returns: string
       }
+      create_loan: {
+        Args: {
+          p_concept: string
+          p_entity: string
+          p_month: number
+          p_quota_amount: number
+          p_starting_installment: number
+          p_total_installments: number
+          p_year: number
+        }
+        Returns: string
+      }
+      set_loan_installment_amounts: {
+        Args: { p_items: Json }
+        Returns: undefined
+      }
       update_card_purchase: {
         Args: {
           p_card: string
@@ -241,6 +257,18 @@ export type Database = {
           p_from_year: number
           p_plan_id: string
           p_quota_amount: number
+          p_total_installments: number
+        }
+        Returns: undefined
+      }
+      update_loan: {
+        Args: {
+          p_concept: string
+          p_entity: string
+          p_from_installment: number
+          p_from_month: number
+          p_from_year: number
+          p_plan_id: string
           p_total_installments: number
         }
         Returns: undefined
