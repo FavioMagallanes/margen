@@ -218,7 +218,33 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_card_purchase: {
+        Args: {
+          p_card: string
+          p_concept: string
+          p_currency: string
+          p_month: number
+          p_quota_amount: number
+          p_starting_installment: number
+          p_total_installments: number
+          p_year: number
+        }
+        Returns: string
+      }
+      update_card_purchase: {
+        Args: {
+          p_card: string
+          p_concept: string
+          p_currency: string
+          p_from_installment: number
+          p_from_month: number
+          p_from_year: number
+          p_plan_id: string
+          p_quota_amount: number
+          p_total_installments: number
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
