@@ -7,6 +7,7 @@ import {
 } from "react"
 
 import type { Session } from "@supabase/supabase-js"
+import { useQueryClient } from "@tanstack/react-query"
 
 import { supabase } from "@/shared/lib/supabase/client"
 
@@ -21,6 +22,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // for React and is never persisted again somewhere else.
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     let isMounted = true
@@ -65,7 +67,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut()
-  }, [])
+    // Every cached query is scoped to the signed-out user; drop it so the
+    // next session never sees a previous owner's budget data (AGENTS.md §7).
+    queryClient.clear()
+  }, [queryClient])
 
   const value = useMemo(
     () => ({

@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import {
   cleanup,
   fireEvent,
@@ -24,10 +25,16 @@ vi.mock("@/shared/lib/supabase/client", () => ({
 }))
 
 const renderLoginPage = async () => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+
   render(
-    <AuthProvider>
-      <LoginPage />
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <LoginPage />
+      </AuthProvider>
+    </QueryClientProvider>
   )
 
   await waitFor(() => {

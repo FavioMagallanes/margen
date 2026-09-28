@@ -6,6 +6,7 @@ import {
   useParams,
 } from "react-router"
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -51,27 +52,34 @@ const LoginScreen = () => {
 
 type InitialEntry = string | { pathname: string; state: { from: string } }
 
-const renderRoutes = (initialEntry: InitialEntry) =>
-  render(
-    <AuthProvider>
-      <MemoryRouter initialEntries={[initialEntry]}>
-        <Routes>
-          <Route
-            path="/login"
-            element={
-              <GuestOnlyRoute>
-                <LoginScreen />
-              </GuestOnlyRoute>
-            }
-          />
-          <Route element={<RequireAuth />}>
-            <Route path="/months/:year/:month" element={<MonthScreen />} />
-            <Route path="/reports" element={<p>Reportes protegidos</p>} />
-          </Route>
-        </Routes>
-      </MemoryRouter>
-    </AuthProvider>
+const renderRoutes = (initialEntry: InitialEntry) => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <MemoryRouter initialEntries={[initialEntry]}>
+          <Routes>
+            <Route
+              path="/login"
+              element={
+                <GuestOnlyRoute>
+                  <LoginScreen />
+                </GuestOnlyRoute>
+              }
+            />
+            <Route element={<RequireAuth />}>
+              <Route path="/months/:year/:month" element={<MonthScreen />} />
+              <Route path="/reports" element={<p>Reportes protegidos</p>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </AuthProvider>
+    </QueryClientProvider>
   )
+}
 
 describe("guard de rutas", () => {
   // Vitest runs without globals, so Testing Library's auto cleanup is not registered.
