@@ -49,11 +49,11 @@ export const SalaryForm = ({
           type="text"
           inputMode="decimal"
           autoComplete="off"
-          className="h-9 w-48 rounded-md border border-border bg-input/30 px-3 font-mono text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+          className="h-8 w-48 rounded-md border border-border bg-input/30 px-3 font-mono text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
           aria-invalid={errors.salary !== undefined}
           {...register("salary")}
         />
-        <Button type="submit" disabled={isSaving}>
+        <Button type="submit" size="lg" disabled={isSaving}>
           {isSaving ? "Guardando…" : "Guardar sueldo"}
         </Button>
       </div>

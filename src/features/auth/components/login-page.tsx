@@ -11,7 +11,7 @@ const SIGN_IN_ERROR_MESSAGE =
   "No pudimos iniciar sesión. Revisá tus datos e intentá de nuevo."
 
 const fieldClassName =
-  "h-9 w-full rounded-md border border-border bg-input/30 px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+  "h-8 w-full rounded-md border border-border bg-input/30 px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
 
 export const LoginPage = () => {
   const { signIn } = useAuth()
