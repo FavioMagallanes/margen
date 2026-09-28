@@ -30,6 +30,10 @@ import { useAuth } from "@/features/auth/use-auth"
 import { useMonthlyBudgetQuery } from "@/features/monthly-budget/api/monthly-budget-queries"
 import { toArsEquivalent } from "@/features/monthly-budget/model/expense-total"
 import { parseAmountInputValue } from "@/shared/lib/amount-input"
+import {
+  type DuplicateCandidate,
+  findPossibleDuplicate,
+} from "@/shared/lib/duplicate-expense"
 import { formatArs } from "@/shared/lib/money"
 import {
   formatPeriodLabel,
@@ -50,6 +54,10 @@ import {
 } from "../api/card-purchase-mutations"
 import { useCardPurchasesQuery } from "../api/card-purchase-queries"
 import {
+  toCardPurchaseCandidates,
+  toCardPurchaseDraftCandidate,
+} from "../model/card-purchase-duplicates"
+import {
   CARD_OPTIONS,
   type CardOption,
   type CardPurchaseFormValues,
@@ -62,6 +70,7 @@ import {
   isLastInstallment,
 } from "../model/card-purchase-groups"
 import { CardPurchaseForm } from "./card-purchase-form"
+import { DuplicateCardPurchaseDialog } from "./duplicate-card-purchase-dialog"
 
 const LOAD_ERROR_MESSAGE =
   "No pudimos cargar las compras con tarjeta del mes. Intentá de nuevo en un momento."
@@ -215,6 +224,13 @@ type EditorState =
   | { kind: "create" }
   | { kind: "edit"; purchase: EditableCardPurchase }
 
+/** A purchase waiting for the user to answer the duplicate warning (RF-09). */
+type PendingCardPurchase = {
+  input: CreateCardPurchaseInput
+  keepFormOpen: boolean
+  duplicate: DuplicateCandidate
+}
+
 type DeleteCardPurchaseDialogProps = {
   concept: string
   isDeleting: boolean
@@ -279,17 +295,67 @@ export const CardPurchasesPage = () => {
   const deletePurchase = useDeleteCardPurchaseMutation(userId)
 
   const [editor, setEditor] = useState<EditorState>({ kind: "closed" })
+  const [pendingCreate, setPendingCreate] =
+    useState<PendingCardPurchase | null>(null)
+  // RF-09: remounting the create form is what resets it to its defaults, so
+  // nothing (not even the installment number) survives the previous load.
+  const [createFormKey, setCreateFormKey] = useState(0)
 
   const closeEditor = () => setEditor({ kind: "closed" })
 
-  const handleCreate = (values: CardPurchaseFormValues) => {
+  const saveCreate = (
+    input: CreateCardPurchaseInput,
+    keepFormOpen: boolean
+  ) => {
+    createPurchase.mutate(input, {
+      onSuccess: () => {
+        if (keepFormOpen) {
+          setCreateFormKey((key) => key + 1)
+          return
+        }
+
+        closeEditor()
+      },
+    })
+  }
+
+  const handleCreate = (
+    values: CardPurchaseFormValues,
+    keepFormOpen: boolean
+  ) => {
     const input = toCreateInput(values)
 
     if (input === null) {
       return
     }
 
-    createPurchase.mutate(input, { onSuccess: closeEditor })
+    // The warning compares against the month already on screen, so it only
+    // applies when the purchase is imputed to that same month.
+    const isViewedMonth =
+      input.period.year === period.year && input.period.month === period.month
+
+    const duplicate = isViewedMonth
+      ? findPossibleDuplicate(
+          toCardPurchaseDraftCandidate(input),
+          toCardPurchaseCandidates(purchasesQuery.data ?? [])
+        )
+      : null
+
+    if (duplicate !== null) {
+      setPendingCreate({ input, keepFormOpen, duplicate })
+      return
+    }
+
+    saveCreate(input, keepFormOpen)
+  }
+
+  const confirmPendingCreate = () => {
+    if (pendingCreate === null) {
+      return
+    }
+
+    setPendingCreate(null)
+    saveCreate(pendingCreate.input, pendingCreate.keepFormOpen)
   }
 
   const handleUpdate = (
@@ -358,18 +424,26 @@ export const CardPurchasesPage = () => {
           </CardHeader>
           <CardContent>
             <CardPurchaseForm
+              key={createFormKey}
               mode="create"
               defaultValues={buildCreateDefaults(period)}
               isSaving={createPurchase.isLoading}
               errorMessage={
                 createPurchase.isError ? CREATE_ERROR_MESSAGE : null
               }
-              onSubmit={handleCreate}
+              onSubmit={(values) => handleCreate(values, false)}
+              onSubmitAndAddAnother={(values) => handleCreate(values, true)}
               onCancel={closeEditor}
             />
           </CardContent>
         </Card>
       ) : null}
+
+      <DuplicateCardPurchaseDialog
+        duplicate={pendingCreate?.duplicate ?? null}
+        onReview={() => setPendingCreate(null)}
+        onSaveAnyway={confirmPendingCreate}
+      />
 
       {editor.kind === "edit" ? (
         <Card>

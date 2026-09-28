@@ -209,7 +209,7 @@ const monthLabel = ({ year, month }: Period) => {
   return name.charAt(0).toUpperCase() + name.slice(1)
 }
 
-const renderCardPurchasesPage = () => {
+const renderCardPurchasesPage = (period: Period = VIEWED_PERIOD) => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
@@ -218,9 +218,7 @@ const renderCardPurchasesPage = () => {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <MemoryRouter
-          initialEntries={[
-            `/months/${VIEWED_PERIOD.year}/${VIEWED_PERIOD.month}/cards`,
-          ]}
+          initialEntries={[`/months/${period.year}/${period.month}/cards`]}
         >
           <Routes>
             <Route
@@ -532,5 +530,205 @@ describe("CardPurchasesPage", () => {
       )
     ).toBeDefined()
     expect(screen.queryByText(/database exploded/)).toBeNull()
+  })
+})
+
+// RF-09: the quick entry works against the month the form imputes to, which
+// is the real current month unless the user picks a later one.
+const CURRENT_PERIOD = getCurrentPeriod()
+
+type PurchaseFields = {
+  concept: string
+  quotaAmount: string
+  startingInstallment: string
+  totalInstallments: string
+}
+
+const fillPurchase = ({
+  concept,
+  quotaAmount,
+  startingInstallment,
+  totalInstallments,
+}: PurchaseFields) => {
+  fireEvent.change(screen.getByLabelText("Concepto"), {
+    target: { value: concept },
+  })
+  fireEvent.change(screen.getByLabelText("Importe de la cuota"), {
+    target: { value: quotaAmount },
+  })
+  fireEvent.change(screen.getByLabelText("Cuota que se carga"), {
+    target: { value: startingInstallment },
+  })
+  fireEvent.change(screen.getByLabelText("Total de cuotas"), {
+    target: { value: totalInstallments },
+  })
+}
+
+// The same purchase already loaded in the month, retyped with a different
+// casing and stray spaces: RF-09 still considers it «muy parecido».
+const openFormAndRepeatNotebook = async () => {
+  fireEvent.click(await screen.findByRole("button", { name: "Agregar compra" }))
+
+  fillPurchase({
+    concept: "  notebook ",
+    quotaAmount: "45000",
+    startingInstallment: "4",
+    totalInstallments: "6",
+  })
+}
+
+describe("CardPurchasesPage: carga rápida (RF-09)", () => {
+  afterEach(cleanup)
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    scenario.occurrences = []
+    scenario.budgets.clear()
+    scenario.loadError = null
+    scenario.deleteError = null
+    scenario.rpcError = null
+
+    authMock.getSession.mockResolvedValue({
+      data: { session: createFakeSession() },
+      error: null,
+    })
+    authMock.onAuthStateChange.mockReturnValue({
+      data: { subscription: { unsubscribe: vi.fn() } },
+    })
+  })
+
+  it("«Guardar y agregar otro» guarda y deja el formulario abierto y en blanco", async () => {
+    renderCardPurchasesPage(CURRENT_PERIOD)
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Agregar compra" })
+    )
+
+    fillPurchase({
+      concept: "Notebook",
+      quotaAmount: "45000",
+      startingInstallment: "3",
+      totalInstallments: "6",
+    })
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Guardar y agregar otro" })
+    )
+
+    await waitFor(() => {
+      expect(rpcMock).toHaveBeenCalledWith(
+        "create_card_purchase",
+        expect.objectContaining({
+          p_concept: "Notebook",
+          p_starting_installment: 3,
+          p_total_installments: 6,
+        })
+      )
+    })
+
+    // The form stays open, reset to its defaults: nothing is dragged from the
+    // previous purchase, not even the installment number.
+    await waitFor(() => {
+      expect(screen.getByLabelText("Concepto")).toHaveProperty("value", "")
+    })
+    expect(screen.getByLabelText("Importe de la cuota")).toHaveProperty(
+      "value",
+      ""
+    )
+    expect(screen.getByLabelText("Cuota que se carga")).toHaveProperty(
+      "value",
+      "1"
+    )
+    expect(screen.getByLabelText("Total de cuotas")).toHaveProperty(
+      "value",
+      "1"
+    )
+  })
+
+  it("«Guardar compra» sigue cerrando el formulario", async () => {
+    renderCardPurchasesPage(CURRENT_PERIOD)
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Agregar compra" })
+    )
+
+    fillPurchase({
+      concept: "Notebook",
+      quotaAmount: "45000",
+      startingInstallment: "3",
+      totalInstallments: "6",
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar compra" }))
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText("Concepto")).toBeNull()
+    })
+  })
+
+  it("avisa del posible duplicado y no guarda nada si el usuario revisa", async () => {
+    setOccurrences([notebookOccurrence])
+
+    renderCardPurchasesPage(CURRENT_PERIOD)
+
+    await openFormAndRepeatNotebook()
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar compra" }))
+
+    expect(await screen.findByText("¿Ya cargaste esta compra?")).toBeDefined()
+    expect(
+      screen.getByText(/Ya existe un gasto muy parecido: «Notebook» en BBVA/)
+    ).toBeDefined()
+    expect(rpcMock).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole("button", { name: "Revisar" }))
+
+    await waitFor(() => {
+      expect(screen.queryByText("¿Ya cargaste esta compra?")).toBeNull()
+    })
+    expect(rpcMock).not.toHaveBeenCalled()
+    // The draft is still there, so the user can compare it with the row.
+    expect(screen.getByLabelText("Concepto")).toHaveProperty(
+      "value",
+      "  notebook "
+    )
+  })
+
+  it("guarda igual cuando el usuario confirma el aviso", async () => {
+    setOccurrences([notebookOccurrence])
+
+    renderCardPurchasesPage(CURRENT_PERIOD)
+
+    await openFormAndRepeatNotebook()
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar compra" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Cargar igual" }))
+
+    await waitFor(() => {
+      expect(rpcMock).toHaveBeenCalledWith(
+        "create_card_purchase",
+        expect.objectContaining({
+          p_concept: "notebook",
+          p_quota_amount: 45_000,
+          p_starting_installment: 4,
+          p_total_installments: 6,
+        })
+      )
+    })
+  })
+
+  it("no interrumpe el caso normal: otro importe no es un duplicado", async () => {
+    setOccurrences([{ ...notebookOccurrence, amount: 30_000 }])
+
+    renderCardPurchasesPage(CURRENT_PERIOD)
+
+    await openFormAndRepeatNotebook()
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar compra" }))
+
+    await waitFor(() => {
+      expect(rpcMock).toHaveBeenCalled()
+    })
+    expect(screen.queryByText("¿Ya cargaste esta compra?")).toBeNull()
   })
 })

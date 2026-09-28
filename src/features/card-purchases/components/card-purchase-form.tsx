@@ -34,7 +34,11 @@ type CardPurchaseFormProps = {
   onSubmit: (values: CardPurchaseFormValues) => void
   onCancel: () => void
 } & (
-  | { mode: "create" }
+  | {
+      mode: "create"
+      /** RF-09: saves and keeps the form open, reset to its defaults. */
+      onSubmitAndAddAnother: (values: CardPurchaseFormValues) => void
+    }
   // P-04: the edit needs the period of the row it was opened from, which the
   // form no longer carries as a field.
   | { mode: "edit"; editedPeriod: Period }
@@ -342,6 +346,16 @@ export const CardPurchaseForm = (props: CardPurchaseFormProps) => {
         <Button type="submit" disabled={isSaving}>
           {isSaving ? "Guardando…" : submitLabel}
         </Button>
+        {props.mode === "create" ? (
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={isSaving}
+            onClick={handleSubmit(props.onSubmitAndAddAnother)}
+          >
+            Guardar y agregar otro
+          </Button>
+        ) : null}
         <Button
           type="button"
           variant="ghost"
