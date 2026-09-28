@@ -89,6 +89,9 @@ export const fetchMonthExpenseLines = async ({
     )
     .eq("year", year)
     .eq("month", month)
+    // RF-05: a skipped recurring month is an explicit absence, not a line
+    // waiting for its amount, so it never reaches the summary of the month.
+    .eq("is_skipped", false)
 
   if (occurrences.error) {
     throw new Error(occurrences.error.message)
