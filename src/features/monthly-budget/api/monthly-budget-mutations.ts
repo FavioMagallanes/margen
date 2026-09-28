@@ -1,9 +1,19 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
+import { fetchTarjetaExchangeRate } from "@/shared/lib/exchange-rate-api"
 import type { Period } from "@/shared/lib/period"
 import { supabase } from "@/shared/lib/supabase/client"
 
-import { monthlyBudgetKeys } from "./monthly-budget-queries"
+import {
+  type ExchangeRateSource,
+  monthlyBudgetKeys,
+} from "./monthly-budget-queries"
+
+export const FETCH_EXCHANGE_RATE_ERROR_MESSAGE =
+  "No pudimos consultar la cotización. Intentá de nuevo en un momento."
+
+export const SAVE_EXCHANGE_RATE_ERROR_MESSAGE =
+  "No pudimos guardar la cotización. Intentá de nuevo en un momento."
 
 export type SaveSalaryInput = {
   period: Period
@@ -37,6 +47,82 @@ export const useSaveSalaryMutation = (userId: string | null) => {
 
       if (error) {
         throw new Error(error.message)
+      }
+    },
+    onSuccess: (_result, { period }) => {
+      if (userId === null) {
+        return
+      }
+
+      void queryClient.invalidateQueries({
+        queryKey: monthlyBudgetKeys.budget(userId, period),
+      })
+    },
+  })
+}
+
+export type SaveExchangeRateInput = {
+  period: Period
+  rateArs: number
+  source: ExchangeRateSource
+  /** Only the provider reports one; a manual rate always saves null. */
+  sourceUpdatedAt: string | null
+}
+
+/**
+ * RF-07: querying the provider is an explicit action, never part of rendering,
+ * so it runs as a mutation the user triggers and can retry.
+ */
+export const useFetchTarjetaExchangeRateMutation = () =>
+  useMutation({
+    mutationFn: async () => {
+      try {
+        return await fetchTarjetaExchangeRate()
+      } catch {
+        // The provider detail stays out of the UI.
+        throw new Error(FETCH_EXCHANGE_RATE_ERROR_MESSAGE)
+      }
+    },
+  })
+
+export const useSaveExchangeRateMutation = (userId: string | null) => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      period,
+      rateArs,
+      source,
+      sourceUpdatedAt,
+    }: SaveExchangeRateInput) => {
+      if (userId === null) {
+        throw new Error(
+          "Cannot save an exchange rate without an authenticated user"
+        )
+      }
+
+      if (!Number.isFinite(rateArs) || rateArs <= 0) {
+        throw new Error("Exchange rate must be a positive amount")
+      }
+
+      // The payload only carries the exchange rate columns: the upsert becomes
+      // an "on conflict do update set" over exactly these columns, so saving a
+      // rate never clears the salary already stored for the month.
+      const { error } = await supabase.from("monthly_budgets").upsert(
+        {
+          user_id: userId,
+          year: period.year,
+          month: period.month,
+          exchange_rate_value: rateArs,
+          exchange_rate_source: source,
+          exchange_rate_fetched_at: new Date().toISOString(),
+          exchange_rate_source_updated_at: sourceUpdatedAt,
+        },
+        { onConflict: "user_id,year,month" }
+      )
+
+      if (error) {
+        throw new Error(SAVE_EXCHANGE_RATE_ERROR_MESSAGE)
       }
     },
     onSuccess: (_result, { period }) => {

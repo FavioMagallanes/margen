@@ -5,10 +5,23 @@ import { supabase } from "@/shared/lib/supabase/client"
 
 import type { ExpenseLine } from "../model/expense-total"
 
+/** RF-07: how the applied rate got there, never which currency it converts. */
+export type ExchangeRateSource = "api" | "manual"
+
 export type MonthlyBudgetRow = {
   salaryArs: number | null
   exchangeRateValue: number | null
+  exchangeRateSource: ExchangeRateSource | null
+  /** When this app fetched or saved the rate, as a raw ISO instant. */
+  exchangeRateFetchedAt: string | null
+  /** When the source says it updated the value; only "api" rates have one. */
+  exchangeRateSourceUpdatedAt: string | null
 }
+
+const toExchangeRateSource = (
+  source: string | null
+): ExchangeRateSource | null =>
+  source === "api" || source === "manual" ? source : null
 
 // Query keys carry the owner and the month so two sessions or two months never
 // share a cache entry.
@@ -26,7 +39,9 @@ export const fetchMonthlyBudget = async ({
   // RLS scopes the read to the authenticated user, so no user_id filter here.
   const { data, error } = await supabase
     .from("monthly_budgets")
-    .select("salary_ars, exchange_rate_value")
+    .select(
+      "salary_ars, exchange_rate_value, exchange_rate_source, exchange_rate_fetched_at, exchange_rate_source_updated_at"
+    )
     .eq("year", year)
     .eq("month", month)
     .maybeSingle()
@@ -42,6 +57,9 @@ export const fetchMonthlyBudget = async ({
   return {
     salaryArs: data.salary_ars,
     exchangeRateValue: data.exchange_rate_value,
+    exchangeRateSource: toExchangeRateSource(data.exchange_rate_source),
+    exchangeRateFetchedAt: data.exchange_rate_fetched_at,
+    exchangeRateSourceUpdatedAt: data.exchange_rate_source_updated_at,
   }
 }
 
