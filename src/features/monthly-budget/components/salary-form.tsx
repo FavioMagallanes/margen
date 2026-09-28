@@ -1,6 +1,9 @@
 import { useForm } from "react-hook-form"
 
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 import {
   parseSalaryArs,
@@ -39,21 +42,21 @@ export const SalaryForm = ({
 
   return (
     <form noValidate onSubmit={onSubmit} className="flex flex-col gap-1.5">
-      <label htmlFor="monthly-salary" className="text-xs text-muted-foreground">
+      <Label htmlFor="monthly-salary" className="text-muted-foreground">
         Sueldo del mes
-      </label>
+      </Label>
 
       <div className="flex items-start gap-2">
-        <input
+        <Input
           id="monthly-salary"
           type="text"
           inputMode="decimal"
           autoComplete="off"
-          className="h-8 w-48 rounded-md border border-border bg-input/30 px-3 font-mono text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+          className="w-48 font-mono"
           aria-invalid={errors.salary !== undefined}
           {...register("salary")}
         />
-        <Button type="submit" size="lg" disabled={isSaving}>
+        <Button type="submit" disabled={isSaving}>
           {isSaving ? "Guardando…" : "Guardar sueldo"}
         </Button>
       </div>
@@ -65,9 +68,9 @@ export const SalaryForm = ({
       ) : null}
 
       {hasFailed ? (
-        <p role="alert" className="text-xs text-destructive">
-          {SAVE_ERROR_MESSAGE}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{SAVE_ERROR_MESSAGE}</AlertDescription>
+        </Alert>
       ) : null}
     </form>
   )
