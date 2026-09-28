@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useParams } from "react-router"
 
 import { Decimal } from "decimal.js"
@@ -44,6 +45,19 @@ export const MonthlyBudgetPage = () => {
   const previousBudgetQuery = useMonthlyBudgetQuery(userId, previousPeriod)
   const saveSalary = useSaveSalaryMutation(userId)
 
+  const periodKey = `${period.year}-${period.month}`
+  const [lastPeriodKey, setLastPeriodKey] = useState(periodKey)
+  const [isEditingSalary, setIsEditingSalary] = useState(false)
+
+  // Switching months should never leave a stale edit form open for a
+  // different period's salary (React's "adjust state during render" pattern,
+  // not an effect, since this only reacts to a prop this component already
+  // renders with).
+  if (periodKey !== lastPeriodKey) {
+    setLastPeriodKey(periodKey)
+    setIsEditingSalary(false)
+  }
+
   if (budgetQuery.isError || expenseLinesQuery.isError) {
     return (
       <Alert variant="destructive">
@@ -79,6 +93,10 @@ export const MonthlyBudgetPage = () => {
 
   const previousSalaryArs = previousBudgetQuery.data?.salaryArs ?? null
   const canCopyPreviousSalary = salaryArs === null && previousSalaryArs !== null
+  // No salary yet: the form is the only sensible thing to show. Once it's
+  // saved, showing the value and the input at the same time is redundant, so
+  // the form only reappears if the user asks to edit it.
+  const showSalaryForm = salaryArs === null || isEditingSalary
 
   return (
     <div className="flex flex-col gap-6">
@@ -88,27 +106,33 @@ export const MonthlyBudgetPage = () => {
             Sueldo de {formatPeriodLabel(period)}
           </p>
 
-          {salaryArs === null ? (
-            <p className="text-base font-medium text-foreground">
-              Sin presupuesto definido
-            </p>
+          {showSalaryForm ? (
+            <SalaryForm
+              key={salaryArs === null ? "sin-sueldo" : String(salaryArs)}
+              defaultSalary={
+                salaryArs === null ? "" : formatSalaryInput(salaryArs)
+              }
+              isSaving={saveSalary.isLoading}
+              hasFailed={saveSalary.isError}
+              onSave={(nextSalaryArs) =>
+                saveSalary.mutate(
+                  { period, salaryArs: nextSalaryArs },
+                  { onSuccess: () => setIsEditingSalary(false) }
+                )
+              }
+              onCancel={
+                salaryArs === null ? undefined : () => setIsEditingSalary(false)
+              }
+            />
           ) : (
-            <p className="font-mono text-xl font-semibold tracking-tight text-foreground">
-              {formatArs(salaryArs)}
-            </p>
+            <button
+              type="button"
+              onClick={() => setIsEditingSalary(true)}
+              className="w-fit rounded-sm font-mono text-xl font-semibold tracking-tight text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/30"
+            >
+              {formatArs(salaryArs as number)}
+            </button>
           )}
-
-          <SalaryForm
-            key={salaryArs === null ? "sin-sueldo" : String(salaryArs)}
-            defaultSalary={
-              salaryArs === null ? "" : formatSalaryInput(salaryArs)
-            }
-            isSaving={saveSalary.isLoading}
-            hasFailed={saveSalary.isError}
-            onSave={(nextSalaryArs) =>
-              saveSalary.mutate({ period, salaryArs: nextSalaryArs })
-            }
-          />
 
           {canCopyPreviousSalary ? (
             <div>

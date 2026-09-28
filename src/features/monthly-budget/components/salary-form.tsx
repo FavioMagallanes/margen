@@ -13,6 +13,8 @@ type SalaryFormProps = {
   isSaving: boolean
   hasFailed: boolean
   onSave: (salaryArs: number) => void
+  /** Only offered when there is already a saved salary to go back to. */
+  onCancel?: (() => void) | undefined
 }
 
 const SAVE_ERROR_MESSAGE =
@@ -23,6 +25,7 @@ export const SalaryForm = ({
   isSaving,
   hasFailed,
   onSave,
+  onCancel,
 }: SalaryFormProps) => {
   const {
     control,
@@ -70,6 +73,16 @@ export const SalaryForm = ({
         <Button type="submit" disabled={isSaving}>
           {isSaving ? "Guardando…" : "Guardar sueldo"}
         </Button>
+        {onCancel === undefined ? null : (
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={isSaving}
+            onClick={onCancel}
+          >
+            Cancelar
+          </Button>
+        )}
       </div>
 
       {errors.salary ? (

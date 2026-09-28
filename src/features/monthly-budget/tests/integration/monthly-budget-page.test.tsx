@@ -189,10 +189,11 @@ describe("MonthlyBudgetPage", () => {
     })
   })
 
-  it("muestra «Sin presupuesto definido» y ningún disponible cuando no hay sueldo", async () => {
+  it("muestra el formulario de sueldo y ningún disponible cuando no hay sueldo", async () => {
     renderBudgetPage()
 
-    expect(await screen.findByText("Sin presupuesto definido")).toBeDefined()
+    expect(await screen.findByLabelText("Sueldo del mes")).toBeDefined()
+    expect(screen.queryByText("Sin presupuesto definido")).toBeNull()
     expect(
       screen.getByText("Cargá el sueldo del mes para ver el disponible.")
     ).toBeDefined()
@@ -233,7 +234,7 @@ describe("MonthlyBudgetPage", () => {
   it("no muestra el botón de copiar cuando el mes anterior tampoco tiene sueldo", async () => {
     renderBudgetPage()
 
-    expect(await screen.findByText("Sin presupuesto definido")).toBeDefined()
+    expect(await screen.findByLabelText("Sueldo del mes")).toBeDefined()
     expect(
       screen.queryByRole("button", { name: "Copiar sueldo del mes anterior" })
     ).toBeNull()
@@ -270,10 +271,36 @@ describe("MonthlyBudgetPage", () => {
     ).toBeGreaterThan(0)
   })
 
+  it("al cancelar la edición del sueldo, vuelve a mostrar el valor guardado", async () => {
+    setBudget(2026, 3, { salary_ars: 1_000_000, exchange_rate_value: null })
+
+    renderBudgetPage()
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /1\.000\.000,00/ })
+    )
+
+    const salaryField = await screen.findByLabelText("Sueldo del mes")
+    fireEvent.change(salaryField, { target: { value: "9999" } })
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }))
+
+    expect(screen.queryByLabelText("Sueldo del mes")).toBeNull()
+    expect(
+      await screen.findByRole("button", { name: /1\.000\.000,00/ })
+    ).toBeDefined()
+    expect(upsertMock).not.toHaveBeenCalled()
+  })
+
   it("guarda el sueldo editado del mes", async () => {
     setBudget(2026, 3, { salary_ars: 1_000_000, exchange_rate_value: null })
 
     renderBudgetPage()
+
+    // The salary is already saved, so it starts as a clickable read-only
+    // value; clicking it is what reveals the input again.
+    fireEvent.click(
+      await screen.findByRole("button", { name: /1\.000\.000,00/ })
+    )
 
     const salaryField = await screen.findByLabelText("Sueldo del mes")
     fireEvent.change(salaryField, { target: { value: "1500000,50" } })
