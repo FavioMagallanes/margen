@@ -1,211 +1,161 @@
 import { useParams } from "react-router"
 
+import { Decimal } from "decimal.js"
+
+import { Button } from "@/components/ui/button"
+import { useAuth } from "@/features/auth/use-auth"
+import { formatArs } from "@/shared/lib/money"
 import {
+  addMonths,
   formatPeriodLabel,
   getCurrentPeriod,
   parsePeriod,
 } from "@/shared/lib/period"
 
-type Currency = "ARS" | "USD"
+import { useSaveSalaryMutation } from "./api/monthly-budget-mutations"
+import {
+  useMonthExpenseLinesQuery,
+  useMonthlyBudgetQuery,
+} from "./api/monthly-budget-queries"
+import { MonthExpenses } from "./components/month-expenses"
+import { SalaryForm } from "./components/salary-form"
+import { computeExpenseTotal } from "./model/expense-total"
+import { formatSalaryInput } from "./model/salary-form"
 
-type SummaryCard = {
-  label: string
-  amountArs: number
-  /** Only card groups show the USD side of their consumption. */
-  amountUsd: number | null
-}
+const LOAD_ERROR_MESSAGE =
+  "No pudimos cargar el presupuesto del mes. Intentá de nuevo en un momento."
 
-type ExpenseRow = {
-  id: string
-  concept: string
-  group: string
-  installment: string | null
-  originalAmount: number
-  originalCurrency: Currency
-  amountArs: number
-}
-
-// Placeholder figures until the Supabase domain layer lands.
-const SALARY_ARS = 1_850_000
-const AVAILABLE_ARS = 703_500
-const CARD_EXCHANGE_RATE = 1_640
-
-const SUMMARY_CARDS: SummaryCard[] = [
-  { label: "BBVA", amountArs: 512_400, amountUsd: 124.9 },
-  { label: "Supervielle", amountArs: 298_100, amountUsd: 42.5 },
-  { label: "Préstamos", amountArs: 336_000, amountUsd: null },
-]
-
-const EXPENSE_ROWS: ExpenseRow[] = [
-  {
-    id: "notebook",
-    concept: "Notebook",
-    group: "BBVA",
-    installment: "3/6",
-    originalAmount: 45_000,
-    originalCurrency: "ARS",
-    amountArs: 45_000,
-  },
-  {
-    id: "hosting",
-    concept: "Hosting anual",
-    group: "BBVA",
-    installment: null,
-    originalAmount: 62,
-    originalCurrency: "USD",
-    amountArs: 101_680,
-  },
-  {
-    id: "seguro",
-    concept: "Seguro del auto",
-    group: "Supervielle",
-    installment: null,
-    originalAmount: 78_400,
-    originalCurrency: "ARS",
-    amountArs: 78_400,
-  },
-  {
-    id: "streaming",
-    concept: "Streaming familiar",
-    group: "Supervielle",
-    installment: null,
-    originalAmount: 12.99,
-    originalCurrency: "USD",
-    amountArs: 21_303,
-  },
-  {
-    id: "prestamo-personal",
-    concept: "Préstamo personal",
-    group: "Préstamos",
-    installment: "8/24",
-    originalAmount: 186_000,
-    originalCurrency: "ARS",
-    amountArs: 186_000,
-  },
-  {
-    id: "heladera",
-    concept: "Heladera",
-    group: "BBVA",
-    installment: "2/12",
-    originalAmount: 98_500,
-    originalCurrency: "ARS",
-    amountArs: 98_500,
-  },
-]
-
-const arsFormatter = new Intl.NumberFormat("es-AR", {
-  style: "currency",
-  currency: "ARS",
-  maximumFractionDigits: 0,
-})
-
-const usdFormatter = new Intl.NumberFormat("es-AR", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 2,
-})
-
-const formatAmount = (amount: number, currency: Currency) =>
-  currency === "ARS" ? arsFormatter.format(amount) : usdFormatter.format(amount)
+const INCOMPLETE_TOTAL_MESSAGE =
+  "El cálculo está incompleto: falta algún importe o la cotización del mes, así que este disponible no es definitivo."
 
 export const MonthlyBudgetPage = () => {
   const { year, month } = useParams()
   const period = parsePeriod(year, month) ?? getCurrentPeriod()
+  const previousPeriod = addMonths(period, -1)
+
+  const { session } = useAuth()
+  const userId = session?.user.id ?? null
+
+  const budgetQuery = useMonthlyBudgetQuery(userId, period)
+  const expenseLinesQuery = useMonthExpenseLinesQuery(userId, period)
+  const previousBudgetQuery = useMonthlyBudgetQuery(userId, previousPeriod)
+  const saveSalary = useSaveSalaryMutation(userId)
+
+  if (budgetQuery.isError || expenseLinesQuery.isError) {
+    return (
+      <section className="rounded-lg border border-border bg-card p-5">
+        <p role="alert" className="text-sm text-destructive">
+          {LOAD_ERROR_MESSAGE}
+        </p>
+      </section>
+    )
+  }
+
+  if (userId === null || budgetQuery.isLoading || expenseLinesQuery.isLoading) {
+    return (
+      <section className="rounded-lg border border-border bg-card p-5">
+        <p className="text-sm text-muted-foreground">
+          Cargando el presupuesto…
+        </p>
+      </section>
+    )
+  }
+
+  const salaryArs = budgetQuery.data?.salaryArs ?? null
+  const arsPerUsd = budgetQuery.data?.exchangeRateValue ?? null
+  const expenseLines = expenseLinesQuery.data ?? []
+  const { totalKnownArs, isComplete } = computeExpenseTotal(
+    expenseLines,
+    arsPerUsd
+  )
+
+  const previousSalaryArs = previousBudgetQuery.data?.salaryArs ?? null
+  const canCopyPreviousSalary = salaryArs === null && previousSalaryArs !== null
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="rounded-lg border border-border bg-card p-5">
-        <p className="text-xs text-muted-foreground">
-          Sueldo de {formatPeriodLabel(period)}
-        </p>
-        <p className="font-mono text-sm text-foreground">
-          {arsFormatter.format(SALARY_ARS)}
-        </p>
+      <section className="flex flex-col gap-4 rounded-lg border border-border bg-card p-5">
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-muted-foreground">
+            Sueldo de {formatPeriodLabel(period)}
+          </p>
 
-        <p className="mt-4 text-xs text-muted-foreground">
-          Disponible del presupuesto
-        </p>
-        <p className="font-mono text-4xl font-semibold tracking-tight text-primary">
-          {arsFormatter.format(AVAILABLE_ARS)}
-        </p>
-      </section>
-
-      <section className="grid gap-4 sm:grid-cols-3">
-        {SUMMARY_CARDS.map((card) => (
-          <article
-            key={card.label}
-            className="rounded-lg border border-border bg-card p-4"
-          >
-            <p className="text-xs text-muted-foreground">{card.label}</p>
-            <p className="font-mono text-xl font-medium">
-              {arsFormatter.format(card.amountArs)}
+          {salaryArs === null ? (
+            <p className="text-sm text-muted-foreground">
+              Sin presupuesto definido
             </p>
-            {card.amountUsd === null ? null : (
-              <p className="font-mono text-xs text-muted-foreground">
-                {usdFormatter.format(card.amountUsd)} · dólar tarjeta{" "}
-                {arsFormatter.format(CARD_EXCHANGE_RATE)}
-              </p>
-            )}
-          </article>
-        ))}
-      </section>
+          ) : (
+            <p className="font-mono text-sm text-foreground">
+              {formatArs(salaryArs)}
+            </p>
+          )}
 
-      <section className="rounded-lg border border-border bg-card">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-sm">
-            <caption className="sr-only">
-              Gastos de {formatPeriodLabel(period)}
-            </caption>
-            <thead className="border-b border-border text-xs text-muted-foreground">
-              <tr>
-                <th scope="col" className="px-4 py-2 font-medium">
-                  Concepto
-                </th>
-                <th scope="col" className="px-4 py-2 font-medium">
-                  Grupo
-                </th>
-                <th scope="col" className="px-4 py-2 font-medium">
-                  Cuota
-                </th>
-                <th scope="col" className="px-4 py-2 text-right font-medium">
-                  Importe original
-                </th>
-                <th scope="col" className="px-4 py-2 text-right font-medium">
-                  Equivalente en ARS
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {EXPENSE_ROWS.map((row) => (
-                <tr
-                  key={row.id}
-                  className="border-b border-border last:border-0"
-                >
-                  <td className="px-4 py-2">{row.concept}</td>
-                  <td className="px-4 py-2 text-muted-foreground">
-                    {row.group}
-                  </td>
-                  <td className="px-4 py-2">
-                    {row.installment === null ? (
-                      <span className="text-muted-foreground">—</span>
-                    ) : (
-                      <span className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-xs">
-                        {row.installment}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2 text-right font-mono">
-                    {formatAmount(row.originalAmount, row.originalCurrency)}
-                  </td>
-                  <td className="px-4 py-2 text-right font-mono">
-                    {arsFormatter.format(row.amountArs)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <SalaryForm
+            key={salaryArs === null ? "sin-sueldo" : String(salaryArs)}
+            defaultSalary={
+              salaryArs === null ? "" : formatSalaryInput(salaryArs)
+            }
+            isSaving={saveSalary.isLoading}
+            hasFailed={saveSalary.isError}
+            onSave={(nextSalaryArs) =>
+              saveSalary.mutate({ period, salaryArs: nextSalaryArs })
+            }
+          />
+
+          {canCopyPreviousSalary ? (
+            <div>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={saveSalary.isLoading}
+                onClick={() =>
+                  saveSalary.mutate({ period, salaryArs: previousSalaryArs })
+                }
+              >
+                Copiar sueldo del mes anterior
+              </Button>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <p className="text-xs text-muted-foreground">
+            Gastos conocidos del mes
+          </p>
+          <p className="font-mono text-sm text-foreground">
+            {formatArs(totalKnownArs)}
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <p className="text-xs text-muted-foreground">
+            Disponible del presupuesto
+          </p>
+
+          {salaryArs === null ? (
+            // RF-01: without a salary there is no definitive available figure.
+            <p className="text-sm text-muted-foreground">
+              Cargá el sueldo del mes para ver el disponible.
+            </p>
+          ) : (
+            <p className="font-mono text-4xl font-semibold tracking-tight text-primary">
+              {formatArs(new Decimal(salaryArs).minus(totalKnownArs))}
+            </p>
+          )}
+
+          {isComplete ? null : (
+            <p className="text-xs text-muted-foreground">
+              {INCOMPLETE_TOTAL_MESSAGE}
+            </p>
+          )}
         </div>
       </section>
+
+      <MonthExpenses
+        lines={expenseLines}
+        arsPerUsd={arsPerUsd}
+        periodLabel={formatPeriodLabel(period)}
+      />
     </div>
   )
 }
