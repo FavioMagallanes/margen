@@ -1,12 +1,5 @@
+import { RouterProvider } from "react-router/dom"
 
-export function App() {
-  return (
-    <div className="flex min-h-svh p-6">
-      <div className="flex max-w-md min-w-0 flex-col gap-4 text-sm leading-loose">
-      <h1>Margen</h1>
-      </div>
-    </div>
-  )
-}
+import { router } from "@/app/router"
 
-export default App
+export const App = () => <RouterProvider router={router} />
