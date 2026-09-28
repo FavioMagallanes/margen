@@ -30,6 +30,7 @@ Instrucciones de desarrollo para agentes que trabajen en este repositorio. Prior
 - No aplicar migraciones remotas, desplegar, modificar recursos de producción ni ejecutar operaciones destructivas sin autorización explícita para esa acción y entorno. Preparar una migración versionada no autoriza a ejecutarla en remoto.
 - Preservar cambios previos del usuario. No revertir, borrar, hacer commit, push ni modificar el historial de Git sin que forme parte de lo solicitado.
 - Preguntar ante cambios de comportamiento no definidos, permisos, costos o riesgo de pérdida de datos. Para detalles locales reversibles, seguir las convenciones existentes sin pedir aprobación por cada función o archivo. Si una parte queda bloqueada, avanzar con lo independiente e informar el límite.
+- Flujo de Git de este proyecto: trunk-based, sin ramas de feature ni pull requests. Todo el trabajo se commitea directamente en `main`, en work units con Conventional Commits. El CI corre únicamente sobre `push` a `main`.
 
 ## 3. TypeScript y contratos
 
@@ -59,12 +60,12 @@ Ejemplo del estilo de componentes propios:
 
 ```tsx
 type ExpenseAmountProps = {
-  formattedAmount: string;
-};
+  formattedAmount: string
+}
 
 export const ExpenseAmount = ({ formattedAmount }: ExpenseAmountProps) => (
   <span>{formattedAmount}</span>
-);
+)
 ```
 
 Las convenciones de exportación de componentes no prohíben un `export default` requerido o convencional en archivos de configuración de herramientas. Si una integración exige una excepción real en código de aplicación, explicar el motivo y pedir autorización en vez de introducirla silenciosamente.
@@ -145,13 +146,13 @@ src/
 
 No buscar cobertura total ni escribir un test por archivo. Elegir pruebas según el daño que produciría una regresión y el costo de detectarla y repararla. Usar el nivel más pequeño que proteja de verdad ese riesgo.
 
-| Prioridad | Riesgos que deben quedar protegidos al trabajar en esa parte |
-| --- | --- |
-| Cálculos | Totales, disponible, conversión, redondeo y datos faltantes. |
-| Cuotas y recurrencias | Secuencia y fin, cambio de año, importes variables, omisiones y conservación del historial. |
-| Persistencia | Doble envío, reintentos, operaciones completas y errores que puedan perder un borrador o duplicar gastos. |
-| Reportes | Solo exportar la selección, separar grupos y mantener importes y cotizaciones de cada mes. |
-| Seguridad | Rechazo de acceso no autorizado y aislamiento de los datos por sesión o propietario. |
+| Prioridad             | Riesgos que deben quedar protegidos al trabajar en esa parte                                              |
+| --------------------- | --------------------------------------------------------------------------------------------------------- |
+| Cálculos              | Totales, disponible, conversión, redondeo y datos faltantes.                                              |
+| Cuotas y recurrencias | Secuencia y fin, cambio de año, importes variables, omisiones y conservación del historial.               |
+| Persistencia          | Doble envío, reintentos, operaciones completas y errores que puedan perder un borrador o duplicar gastos. |
+| Reportes              | Solo exportar la selección, separar grupos y mantener importes y cotizaciones de cada mes.                |
+| Seguridad             | Rechazo de acceso no autorizado y aislamiento de los datos por sesión o propietario.                      |
 
 - Preferir unitarios para reglas puras e integración para formularios, persistencia, restricciones y permisos. Los mocks de Supabase no demuestran que una política RLS o una transacción funcionen: comprobar esas garantías en un entorno de prueba real y autorizado.
 - Añadir E2E únicamente cuando el riesgo dependa del flujo completo y no esté suficientemente cubierto por pruebas menores. Ejemplos útiles: cargar una compra y verificar su persistencia tras recargar, o seleccionar registros y descargar el PDF correcto. No crear un E2E por variante de validación.

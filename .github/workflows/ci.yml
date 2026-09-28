@@ -1,10 +1,10 @@
 name: CI
 
+# This repo works trunk-based: no feature branches, no pull requests.
+# Every commit lands directly on main, so CI only needs to run there.
 on:
   push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
+    branches: [main]
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
