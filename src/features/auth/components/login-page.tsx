@@ -2,16 +2,17 @@ import { useState } from "react"
 
 import { useForm } from "react-hook-form"
 
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 import { type LoginFormValues, loginResolver } from "../model/login-form"
 import { useAuth } from "../use-auth"
 
 const SIGN_IN_ERROR_MESSAGE =
   "No pudimos iniciar sesión. Revisá tus datos e intentá de nuevo."
-
-const fieldClassName =
-  "h-8 w-full rounded-md border border-border bg-input/30 px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
 
 export const LoginPage = () => {
   const { signIn } = useAuth()
@@ -45,12 +46,8 @@ export const LoginPage = () => {
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_50%_0%,color-mix(in_oklch,var(--primary),transparent_88%),transparent_70%)]"
       />
 
-      <form
-        noValidate
-        onSubmit={onSubmit}
-        className="relative flex w-full max-w-sm flex-col gap-6 rounded-xl border border-border bg-card p-8"
-      >
-        <div className="flex flex-col items-center gap-3 text-center">
+      <Card className="relative w-full max-w-sm gap-6 rounded-xl [--card-spacing:--spacing(8)]">
+        <CardHeader className="flex flex-col items-center gap-3 text-center">
           <img
             src="/margen-web.svg"
             alt=""
@@ -63,63 +60,61 @@ export const LoginPage = () => {
               Ingresá con tu email y contraseña para ver tu presupuesto.
             </p>
           </div>
-        </div>
+        </CardHeader>
 
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="login-email" className="text-xs font-medium">
-              Email
-            </label>
-            <input
-              id="login-email"
-              type="email"
-              autoComplete="email"
-              className={fieldClassName}
-              aria-invalid={errors.email !== undefined}
-              {...register("email")}
-            />
-            {errors.email ? (
-              <p role="alert" className="text-xs text-destructive">
-                {errors.email.message}
-              </p>
+        <CardContent>
+          <form noValidate onSubmit={onSubmit} className="flex flex-col gap-6">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="login-email">Email</Label>
+                <Input
+                  id="login-email"
+                  type="email"
+                  autoComplete="email"
+                  aria-invalid={errors.email !== undefined}
+                  {...register("email")}
+                />
+                {errors.email ? (
+                  <p role="alert" className="text-xs text-destructive">
+                    {errors.email.message}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="login-password">Contraseña</Label>
+                <Input
+                  id="login-password"
+                  type="password"
+                  autoComplete="current-password"
+                  aria-invalid={errors.password !== undefined}
+                  {...register("password")}
+                />
+                {errors.password ? (
+                  <p role="alert" className="text-xs text-destructive">
+                    {errors.password.message}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+
+            {hasFailed ? (
+              <Alert variant="destructive">
+                <AlertDescription>{SIGN_IN_ERROR_MESSAGE}</AlertDescription>
+              </Alert>
             ) : null}
-          </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="login-password" className="text-xs font-medium">
-              Contraseña
-            </label>
-            <input
-              id="login-password"
-              type="password"
-              autoComplete="current-password"
-              className={fieldClassName}
-              aria-invalid={errors.password !== undefined}
-              {...register("password")}
-            />
-            {errors.password ? (
-              <p role="alert" className="text-xs text-destructive">
-                {errors.password.message}
-              </p>
-            ) : null}
-          </div>
-        </div>
-
-        {hasFailed ? (
-          <p role="alert" className="text-xs text-destructive">
-            {SIGN_IN_ERROR_MESSAGE}
-          </p>
-        ) : null}
-
-        <Button
-          type="submit"
-          size="lg"
-          className="w-full"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? "Ingresando…" : "Ingresar"}
-        </Button>
-      </form>
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Ingresando…" : "Ingresar"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </main>
   )
 }
