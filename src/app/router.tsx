@@ -8,6 +8,7 @@ import { RequireAuth } from "@/features/auth/components/require-auth"
 import { CardPurchasesPage } from "@/features/card-purchases/components/card-purchases-page"
 import { LoansPage } from "@/features/loans/components/loans-page"
 import { MonthlyBudgetPage } from "@/features/monthly-budget/monthly-budget-page"
+import { OtherExpensesPage } from "@/features/other-expenses/components/other-expenses-page"
 import { getCurrentPeriod } from "@/shared/lib/period"
 
 // Resolved per navigation so a session open across midnight still lands on today.
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
             path: "recurring",
             element: <PlaceholderPage title="Recurrentes" />,
           },
+          { path: "other", element: <OtherExpensesPage /> },
         ],
       },
       {

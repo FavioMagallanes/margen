@@ -5,6 +5,7 @@ import {
   CreditCardFreeIcons,
   Invoice01FreeIcons,
   RepeatFreeIcons,
+  ShoppingBag01FreeIcons,
   Wallet01FreeIcons,
 } from "@hugeicons/core-free-icons"
 import type { IconSvgElement } from "@hugeicons/react"
@@ -44,6 +45,12 @@ const NAV_ITEMS: NavItem[] = [
     label: "Recurrentes",
     icon: RepeatFreeIcons,
     buildPath: ({ year, month }) => `/months/${year}/${month}/recurring`,
+    end: false,
+  },
+  {
+    label: "Otros gastos",
+    icon: ShoppingBag01FreeIcons,
+    buildPath: ({ year, month }) => `/months/${year}/${month}/other`,
     end: false,
   },
   {
