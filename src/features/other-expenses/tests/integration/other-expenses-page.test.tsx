@@ -430,3 +430,128 @@ describe("OtherExpensesPage", () => {
     expect(screen.queryByText(/database exploded/)).toBeNull()
   })
 })
+
+// The same expense already loaded this month, retyped with another casing and
+// stray spaces: RF-09 still considers it «muy parecido».
+const openFormAndRepeatGroceries = async () => {
+  await openCreateForm()
+  fillConceptAndAmount("  supermercado ", "85000")
+}
+
+describe("OtherExpensesPage: carga rápida (RF-09)", () => {
+  afterEach(cleanup)
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    scenario.expenses = []
+    scenario.loadError = null
+    scenario.writeError = null
+
+    authMock.getSession.mockResolvedValue({
+      data: { session: createFakeSession() },
+      error: null,
+    })
+    authMock.onAuthStateChange.mockReturnValue({
+      data: { subscription: { unsubscribe: vi.fn() } },
+    })
+  })
+
+  it("«Guardar y agregar otro» guarda y deja el formulario abierto y en blanco", async () => {
+    renderOtherExpensesPage()
+
+    await openCreateForm()
+    fillConceptAndAmount("Veterinaria", "40000")
+    fireEvent.click(screen.getByRole("radio", { name: "Efectivo" }))
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Guardar y agregar otro" })
+    )
+
+    await waitFor(() => {
+      expect(insertMock).toHaveBeenCalledWith(
+        "other_expenses",
+        expect.objectContaining({
+          concept: "Veterinaria",
+          amount: 40_000,
+          payment_method: "Efectivo",
+        })
+      )
+    })
+
+    // The form stays open, reset to its defaults: neither the concept nor the
+    // payment method is dragged from the previous expense.
+    await waitFor(() => {
+      expect(screen.getByLabelText("Concepto")).toHaveProperty("value", "")
+    })
+    expect(screen.getByLabelText("Importe")).toHaveProperty("value", "")
+    expect(
+      screen
+        .getByRole("radio", { name: "Sin especificar" })
+        .getAttribute("aria-checked")
+    ).toBe("true")
+  })
+
+  it("avisa del posible duplicado y no guarda nada si el usuario revisa", async () => {
+    setExpenses([groceries])
+
+    renderOtherExpensesPage()
+
+    await openFormAndRepeatGroceries()
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar gasto" }))
+
+    expect(await screen.findByText("¿Ya cargaste este gasto?")).toBeDefined()
+    expect(
+      screen.getByText(
+        /Ya existe un gasto muy parecido en este mes: «Supermercado»/
+      )
+    ).toBeDefined()
+    expect(insertMock).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole("button", { name: "Revisar" }))
+
+    await waitFor(() => {
+      expect(screen.queryByText("¿Ya cargaste este gasto?")).toBeNull()
+    })
+    expect(insertMock).not.toHaveBeenCalled()
+  })
+
+  it("guarda igual cuando el usuario confirma el aviso", async () => {
+    setExpenses([groceries])
+
+    renderOtherExpensesPage()
+
+    await openFormAndRepeatGroceries()
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar gasto" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Cargar igual" }))
+
+    await waitFor(() => {
+      expect(insertMock).toHaveBeenCalledWith(
+        "other_expenses",
+        expect.objectContaining({
+          concept: "supermercado",
+          amount: 85_000,
+          year: VIEWED_PERIOD.year,
+          month: VIEWED_PERIOD.month,
+        })
+      )
+    })
+  })
+
+  it("no interrumpe el caso normal: otro importe no es un duplicado", async () => {
+    setExpenses([groceries])
+
+    renderOtherExpensesPage()
+
+    await openCreateForm()
+    fillConceptAndAmount("Supermercado", "90000")
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar gasto" }))
+
+    await waitFor(() => {
+      expect(insertMock).toHaveBeenCalled()
+    })
+    expect(screen.queryByText("¿Ya cargaste este gasto?")).toBeNull()
+  })
+})

@@ -28,6 +28,10 @@ import {
 } from "@/components/ui/table"
 import { useAuth } from "@/features/auth/use-auth"
 import { parseAmountInputValue } from "@/shared/lib/amount-input"
+import {
+  type DuplicateCandidate,
+  findPossibleDuplicate,
+} from "@/shared/lib/duplicate-expense"
 import { formatArs } from "@/shared/lib/money"
 import {
   formatPeriodLabel,
@@ -50,11 +54,16 @@ import {
   useOtherExpensesQuery,
 } from "../api/other-expense-queries"
 import {
+  toOtherExpenseCandidates,
+  toOtherExpenseDraftCandidate,
+} from "../model/other-expense-duplicates"
+import {
   formatOtherExpenseAmountInput,
   fromStoredPaymentMethod,
   type OtherExpenseFormValues,
   toStoredPaymentMethod,
 } from "../model/other-expense-form"
+import { DuplicateOtherExpenseDialog } from "./duplicate-other-expense-dialog"
 import { OtherExpenseForm } from "./other-expense-form"
 
 const LOAD_ERROR_MESSAGE =
@@ -126,6 +135,13 @@ type EditorState =
   | { kind: "create" }
   | { kind: "edit"; row: OtherExpenseRow }
 
+/** An expense waiting for the user to answer the duplicate warning (RF-09). */
+type PendingOtherExpense = {
+  values: OtherExpenseValues
+  keepFormOpen: boolean
+  duplicate: DuplicateCandidate
+}
+
 type DeleteOtherExpenseDialogProps = {
   concept: string
   isDeleting: boolean
@@ -187,20 +203,60 @@ export const OtherExpensesPage = () => {
   const deleteOtherExpense = useDeleteOtherExpenseMutation(userId)
 
   const [editor, setEditor] = useState<EditorState>({ kind: "closed" })
+  const [pendingCreate, setPendingCreate] =
+    useState<PendingOtherExpense | null>(null)
+  // RF-09: remounting the create form is what resets it to its defaults, so
+  // nothing survives the previous load.
+  const [createFormKey, setCreateFormKey] = useState(0)
 
   const closeEditor = () => setEditor({ kind: "closed" })
 
-  const handleCreate = (values: OtherExpenseFormValues) => {
+  const saveCreate = (values: OtherExpenseValues, keepFormOpen: boolean) => {
+    createOtherExpense.mutate(
+      { ...values, period },
+      {
+        onSuccess: () => {
+          if (keepFormOpen) {
+            setCreateFormKey((key) => key + 1)
+            return
+          }
+
+          closeEditor()
+        },
+      }
+    )
+  }
+
+  const handleCreate = (
+    values: OtherExpenseFormValues,
+    keepFormOpen: boolean
+  ) => {
     const expenseValues = toExpenseValues(values)
 
     if (expenseValues === null) {
       return
     }
 
-    createOtherExpense.mutate(
-      { ...expenseValues, period },
-      { onSuccess: closeEditor }
+    const duplicate = findPossibleDuplicate(
+      toOtherExpenseDraftCandidate(expenseValues),
+      toOtherExpenseCandidates(otherExpensesQuery.data ?? [])
     )
+
+    if (duplicate !== null) {
+      setPendingCreate({ values: expenseValues, keepFormOpen, duplicate })
+      return
+    }
+
+    saveCreate(expenseValues, keepFormOpen)
+  }
+
+  const confirmPendingCreate = () => {
+    if (pendingCreate === null) {
+      return
+    }
+
+    setPendingCreate(null)
+    saveCreate(pendingCreate.values, pendingCreate.keepFormOpen)
   }
 
   const handleUpdate = (
@@ -270,6 +326,7 @@ export const OtherExpensesPage = () => {
           </CardHeader>
           <CardContent>
             <OtherExpenseForm
+              key={createFormKey}
               mode="create"
               defaultValues={buildCreateDefaults()}
               conceptSuggestions={conceptSuggestions}
@@ -278,12 +335,19 @@ export const OtherExpensesPage = () => {
               errorMessage={
                 createOtherExpense.isError ? CREATE_ERROR_MESSAGE : null
               }
-              onSubmit={handleCreate}
+              onSubmit={(values) => handleCreate(values, false)}
+              onSubmitAndAddAnother={(values) => handleCreate(values, true)}
               onCancel={closeEditor}
             />
           </CardContent>
         </Card>
       ) : null}
+
+      <DuplicateOtherExpenseDialog
+        duplicate={pendingCreate?.duplicate ?? null}
+        onReview={() => setPendingCreate(null)}
+        onSaveAnyway={confirmPendingCreate}
+      />
 
       {editor.kind === "edit" ? (
         <Card>

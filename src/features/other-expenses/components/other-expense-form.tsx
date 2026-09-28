@@ -18,7 +18,6 @@ import {
 } from "../model/other-expense-form"
 
 type OtherExpenseFormProps = {
-  mode: "create" | "edit"
   defaultValues: OtherExpenseFormValues
   /** Concepts already written by the user; they suggest, never restrict. */
   conceptSuggestions: readonly string[]
@@ -28,7 +27,14 @@ type OtherExpenseFormProps = {
   errorMessage: string | null
   onSubmit: (values: OtherExpenseFormValues) => void
   onCancel: () => void
-}
+} & (
+  | {
+      mode: "create"
+      /** RF-09: saves and keeps the form open, reset to its defaults. */
+      onSubmitAndAddAnother: (values: OtherExpenseFormValues) => void
+    }
+  | { mode: "edit" }
+)
 
 const CONCEPT_SUGGESTIONS_ID = "other-expense-concept-suggestions"
 
@@ -123,16 +129,16 @@ const paymentMethodChoices: Choice[] = PAYMENT_METHOD_OPTIONS.map(
   })
 )
 
-export const OtherExpenseForm = ({
-  mode,
-  defaultValues,
-  conceptSuggestions,
-  period,
-  isSaving,
-  errorMessage,
-  onSubmit,
-  onCancel,
-}: OtherExpenseFormProps) => {
+export const OtherExpenseForm = (props: OtherExpenseFormProps) => {
+  const {
+    defaultValues,
+    conceptSuggestions,
+    period,
+    isSaving,
+    errorMessage,
+    onSubmit,
+    onCancel,
+  } = props
   const {
     control,
     register,
@@ -144,7 +150,7 @@ export const OtherExpenseForm = ({
   })
 
   const paymentMethod = useWatch({ control, name: "paymentMethod" })
-  const isCreating = mode === "create"
+  const isCreating = props.mode === "create"
 
   return (
     <form
@@ -249,6 +255,16 @@ export const OtherExpenseForm = ({
               ? "Guardar gasto"
               : "Guardar cambios"}
         </Button>
+        {props.mode === "create" ? (
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={isSaving}
+            onClick={handleSubmit(props.onSubmitAndAddAnother)}
+          >
+            Guardar y agregar otro
+          </Button>
+        ) : null}
         <Button
           type="button"
           variant="ghost"
