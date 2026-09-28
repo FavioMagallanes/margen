@@ -9,9 +9,13 @@ export const LogoutButton = () => {
   const { signOut } = useAuth()
 
   return (
-    <Button variant="ghost" size="sm" onClick={() => void signOut()}>
-      <HugeiconsIcon icon={Logout01FreeIcons} size={14} />
-      Cerrar sesión
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-label="Cerrar sesión"
+      onClick={() => void signOut()}
+    >
+      <HugeiconsIcon icon={Logout01FreeIcons} size={16} />
     </Button>
   )
 }
