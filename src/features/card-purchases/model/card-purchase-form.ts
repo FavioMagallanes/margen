@@ -26,14 +26,11 @@ const TOTAL_INSTALLMENTS_MESSAGE =
   "Ingresá un total de cuotas entero y positivo"
 const INSTALLMENT_ORDER_MESSAGE =
   "La cuota inicial no puede superar el total de cuotas"
-const YEAR_MESSAGE = "Ingresá el año de la cuota"
 const MONTH_MESSAGE = "Elegí el mes de la cuota"
 
-const MIN_YEAR = 2000
-const MAX_YEAR = 2100
 const MONTHS_PER_YEAR = 12
 
-/** The installment, year and month fields travel as text, like every other input. */
+/** The installment and month fields travel as text, like every other input. */
 export const parsePositiveInteger = (value: string): number | null => {
   const trimmedValue = value.trim()
 
@@ -53,12 +50,9 @@ const isQuotaAmount = (quotaAmount: string): boolean => {
   return amount !== null && amount.greaterThan(0)
 }
 
-const isYear = (year: string): boolean => {
-  const parsedYear = parsePositiveInteger(year)
-
-  return parsedYear !== null && parsedYear >= MIN_YEAR && parsedYear <= MAX_YEAR
-}
-
+// RF-02: the year is always the current one, so the form never asks for it and
+// only the calendar bound is validated here; which months are actually offered
+// depends on today's date and belongs to the component, not to this pure schema.
 const isMonth = (month: string): boolean => {
   const parsedMonth = parsePositiveInteger(month)
 
@@ -73,7 +67,6 @@ const cardPurchaseFields = z.object({
   isSinglePayment: z.boolean(),
   startingInstallment: z.string(),
   totalInstallments: z.string(),
-  year: z.string().refine(isYear, YEAR_MESSAGE),
   month: z.string().refine(isMonth, MONTH_MESSAGE),
 })
 
@@ -138,7 +131,6 @@ const CARD_PURCHASE_FIELDS = [
   "isSinglePayment",
   "startingInstallment",
   "totalInstallments",
-  "year",
   "month",
 ] as const
 

@@ -13,7 +13,6 @@ const baseValues = {
   isSinglePayment: false,
   startingInstallment: "3",
   totalInstallments: "6",
-  year: "2026",
   month: "9",
 }
 

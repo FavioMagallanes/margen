@@ -13,7 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { formatPeriodLabel } from "@/shared/lib/period"
+import {
+  formatPeriodLabel,
+  getCurrentPeriod,
+  type Period,
+} from "@/shared/lib/period"
 import { AmountInput } from "@/shared/ui/amount-input"
 
 import {
@@ -24,13 +28,17 @@ import {
 } from "../model/card-purchase-form"
 
 type CardPurchaseFormProps = {
-  mode: "create" | "edit"
   defaultValues: CardPurchaseFormValues
   isSaving: boolean
   errorMessage: string | null
   onSubmit: (values: CardPurchaseFormValues) => void
   onCancel: () => void
-}
+} & (
+  | { mode: "create" }
+  // P-04: the edit needs the period of the row it was opened from, which the
+  // form no longer carries as a field.
+  | { mode: "edit"; editedPeriod: Period }
+)
 
 type SelectOption = {
   value: string
@@ -54,17 +62,21 @@ const monthNameFormatter = new Intl.DateTimeFormat("es-AR", {
   timeZone: "UTC",
 })
 
-const monthOptions: SelectOption[] = Array.from(
-  { length: MONTHS_PER_YEAR },
-  (_value, index) => {
-    const name = monthNameFormatter.format(Date.UTC(2026, index, 1))
+/**
+ * RF-02: a purchase can only be imputed from the current real month up to
+ * December of that same year, so the options are derived from today on every
+ * render instead of being a fixed list.
+ */
+const buildMonthOptions = ({ year, month }: Period): SelectOption[] =>
+  Array.from({ length: MONTHS_PER_YEAR - month + 1 }, (_value, index) => {
+    const optionMonth = month + index
+    const name = monthNameFormatter.format(Date.UTC(year, optionMonth - 1, 1))
 
     return {
-      value: String(index + 1),
+      value: String(optionMonth),
       label: name.charAt(0).toUpperCase() + name.slice(1),
     }
-  }
-)
+  })
 
 /**
  * The Select root drives the value through `onValueChange` instead of a change
@@ -136,14 +148,8 @@ const Field = ({
   </div>
 )
 
-export const CardPurchaseForm = ({
-  mode,
-  defaultValues,
-  isSaving,
-  errorMessage,
-  onSubmit,
-  onCancel,
-}: CardPurchaseFormProps) => {
+export const CardPurchaseForm = (props: CardPurchaseFormProps) => {
+  const { defaultValues, isSaving, errorMessage, onSubmit, onCancel } = props
   const {
     control,
     register,
@@ -155,17 +161,14 @@ export const CardPurchaseForm = ({
   })
 
   const isSinglePayment = useWatch({ control, name: "isSinglePayment" })
-  const isCreating = mode === "create"
+  const isCreating = props.mode === "create"
 
   const submitLabel = isCreating ? "Guardar compra" : "Guardar cambios"
 
   const editedInstallment = parsePositiveInteger(
     defaultValues.startingInstallment
   )
-  const editedPeriodLabel = formatPeriodLabel({
-    year: Number(defaultValues.year),
-    month: Number(defaultValues.month),
-  })
+  const monthOptions = buildMonthOptions(getCurrentPeriod())
 
   return (
     <form
@@ -306,7 +309,7 @@ export const CardPurchaseForm = ({
         </div>
       )}
 
-      {isCreating ? (
+      {props.mode === "create" ? (
         <div className="grid gap-4 sm:grid-cols-2">
           <Field htmlFor="card-purchase-month" label="Mes de la cuota">
             <Controller
@@ -325,23 +328,13 @@ export const CardPurchaseForm = ({
             />
             <FieldError message={errors.month?.message} />
           </Field>
-
-          <Field htmlFor="card-purchase-year" label="Año de la cuota">
-            <Input
-              id="card-purchase-year"
-              type="number"
-              inputMode="numeric"
-              aria-invalid={errors.year !== undefined}
-              {...register("year")}
-            />
-            <FieldError message={errors.year?.message} />
-          </Field>
         </div>
       ) : (
         // P-04: an edit always applies from the installment the user opened.
         <p className="text-xs text-muted-foreground">
           Los cambios se aplican desde la cuota {editedInstallment} de{" "}
-          {editedPeriodLabel} en adelante. Los meses anteriores no se modifican.
+          {formatPeriodLabel(props.editedPeriod)} en adelante. Los meses
+          anteriores no se modifican.
         </p>
       )}
 
