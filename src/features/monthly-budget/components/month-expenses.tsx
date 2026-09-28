@@ -1,3 +1,14 @@
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { formatArs } from "@/shared/lib/money"
 
 import {
@@ -43,11 +54,13 @@ export const MonthExpenses = ({
 }: MonthExpensesProps) => {
   if (lines.length === 0) {
     return (
-      <section className="rounded-lg border border-border bg-card p-5">
-        <p className="text-sm text-muted-foreground">
-          Todavía no cargaste gastos para este mes.
-        </p>
-      </section>
+      <Card>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Todavía no cargaste gastos para este mes.
+          </p>
+        </CardContent>
+      </Card>
     )
   }
 
@@ -57,83 +70,89 @@ export const MonthExpenses = ({
     <>
       <section className="grid gap-4 sm:grid-cols-3">
         {groupTotals.map((groupTotal) => (
-          <article
-            key={groupTotal.group}
-            className="rounded-lg border border-border bg-card p-4"
-          >
-            <p className="text-xs text-muted-foreground">{groupTotal.group}</p>
-            <p className="font-mono text-xl font-medium">
-              {formatArs(groupTotal.totalKnownArs)}
-            </p>
-            {groupTotal.isComplete ? null : (
+          <Card key={groupTotal.group} size="sm">
+            <CardContent className="flex flex-col gap-0.5">
               <p className="text-xs text-muted-foreground">
-                Total incompleto: faltan datos de este grupo.
+                {groupTotal.group}
               </p>
-            )}
-          </article>
+              <p className="font-mono text-xl font-medium">
+                {formatArs(groupTotal.totalKnownArs)}
+              </p>
+              {groupTotal.isComplete ? null : (
+                // Repeated once per group card, so it stays muted text instead
+                // of a full alert box.
+                <p className="text-xs text-muted-foreground">
+                  Total incompleto: faltan datos de este grupo.
+                </p>
+              )}
+            </CardContent>
+          </Card>
         ))}
       </section>
 
-      <section className="rounded-lg border border-border bg-card">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-sm">
-            <caption className="sr-only">Gastos de {periodLabel}</caption>
-            <thead className="border-b border-border text-xs text-muted-foreground">
-              <tr>
-                <th scope="col" className="px-4 py-2 font-medium">
-                  Concepto
-                </th>
-                <th scope="col" className="px-4 py-2 font-medium">
-                  Grupo
-                </th>
-                <th scope="col" className="px-4 py-2 font-medium">
-                  Cuota
-                </th>
-                <th scope="col" className="px-4 py-2 text-right font-medium">
-                  Importe original
-                </th>
-                <th scope="col" className="px-4 py-2 text-right font-medium">
-                  Equivalente en ARS
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {lines.map((line) => {
-                const arsEquivalent = toArsEquivalent(line, arsPerUsd)
+      <Card className="py-0">
+        <Table className="min-w-[640px] text-sm">
+          <TableCaption className="sr-only">
+            Gastos de {periodLabel}
+          </TableCaption>
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col" className="px-4 text-muted-foreground">
+                Concepto
+              </TableHead>
+              <TableHead scope="col" className="px-4 text-muted-foreground">
+                Grupo
+              </TableHead>
+              <TableHead scope="col" className="px-4 text-muted-foreground">
+                Cuota
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="px-4 text-right text-muted-foreground"
+              >
+                Importe original
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="px-4 text-right text-muted-foreground"
+              >
+                Equivalente en ARS
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {lines.map((line) => {
+              const arsEquivalent = toArsEquivalent(line, arsPerUsd)
 
-                return (
-                  <tr
-                    key={line.id}
-                    className="border-b border-border last:border-0"
-                  >
-                    <td className="px-4 py-2">{line.concept}</td>
-                    <td className="px-4 py-2 text-muted-foreground">
-                      {line.group}
-                    </td>
-                    <td className="px-4 py-2">
-                      {line.installment === null ? (
-                        <span className="text-muted-foreground">—</span>
-                      ) : (
-                        <span className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-xs">
-                          {line.installment}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-right font-mono">
-                      {formatOriginalAmount(line)}
-                    </td>
-                    <td className="px-4 py-2 text-right font-mono">
-                      {arsEquivalent === null
-                        ? MISSING_AMOUNT_LABEL
-                        : formatArs(arsEquivalent)}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
+              return (
+                <TableRow key={line.id}>
+                  <TableCell className="px-4">{line.concept}</TableCell>
+                  <TableCell className="px-4 text-muted-foreground">
+                    {line.group}
+                  </TableCell>
+                  <TableCell className="px-4">
+                    {line.installment === null ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : (
+                      <Badge variant="outline" className="font-mono">
+                        {line.installment}
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="px-4 text-right font-mono">
+                    {formatOriginalAmount(line)}
+                  </TableCell>
+                  <TableCell className="px-4 text-right font-mono">
+                    {arsEquivalent === null
+                      ? MISSING_AMOUNT_LABEL
+                      : formatArs(arsEquivalent)}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      </Card>
     </>
   )
 }
