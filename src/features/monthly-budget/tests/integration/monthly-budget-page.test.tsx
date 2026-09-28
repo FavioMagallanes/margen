@@ -278,6 +278,47 @@ describe("MonthlyBudgetPage", () => {
     ).toBeNull()
   })
 
+  it("deja fuera del total la cuota de préstamo sin importe y avisa que el cálculo está incompleto", async () => {
+    setBudget(2026, 3, { salary_ars: 1_000_000, exchange_rate_value: null })
+    scenario.expenseOccurrences = [
+      {
+        id: "occurrence-1",
+        amount: 120_000,
+        installment_number: 4,
+        spending_plans: {
+          concept: "Préstamo personal",
+          group_label: "BBVA",
+          currency: "ars",
+          total_installments: 12,
+        },
+      },
+      {
+        // RF-03: an installment with no amount yet is not a zero expense.
+        id: "occurrence-2",
+        amount: null,
+        installment_number: 3,
+        spending_plans: {
+          concept: "Préstamo del auto",
+          group_label: "Mercado Pago",
+          currency: "ars",
+          total_installments: 24,
+        },
+      },
+    ]
+
+    renderBudgetPage()
+
+    // 1.000.000 - 120.000: the installment without amount is left out instead
+    // of being added as zero.
+    expect(await screen.findByText(/880\.000,00/)).toBeDefined()
+    expect(
+      screen.getByText(
+        "El cálculo está incompleto: falta algún importe o la cotización del mes, así que este disponible no es definitivo."
+      )
+    ).toBeDefined()
+    expect(screen.getAllByText("Sin dato").length).toBeGreaterThan(0)
+  })
+
   it("no muestra el botón de copiar cuando el mes anterior tampoco tiene sueldo", async () => {
     renderBudgetPage()
 
