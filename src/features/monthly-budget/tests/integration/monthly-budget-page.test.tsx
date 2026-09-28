@@ -278,6 +278,39 @@ describe("MonthlyBudgetPage", () => {
     ).toBeNull()
   })
 
+  it("solo muestra el equivalente en ARS para las líneas en USD", async () => {
+    setBudget(2026, 3, { salary_ars: 1_850_000, exchange_rate_value: 1640 })
+    scenario.expenseOccurrences = [
+      {
+        id: "occurrence-1",
+        amount: 45_000,
+        installment_number: 3,
+        spending_plans: {
+          concept: "Notebook",
+          group_label: "BBVA",
+          currency: "ars",
+          total_installments: 6,
+        },
+      },
+    ]
+    scenario.otherExpenses = [
+      { id: "other-1", concept: "Hosting", amount: 100, currency: "usd" },
+    ]
+
+    renderBudgetPage()
+
+    const notebookRow = (await screen.findByText("Notebook")).closest("tr")
+    const hostingRow = screen.getByText("Hosting").closest("tr")
+
+    // An ARS line already is ARS: its own amount repeated as an "equivalent"
+    // is meaningless, so that cell shows a dash instead of duplicating it.
+    expect(notebookRow?.textContent).toContain("—")
+    expect(notebookRow?.textContent?.match(/45\.000,00/g)?.length).toBe(1)
+
+    // A USD line does get a converted ARS equivalent (100 * 1640).
+    expect(hostingRow?.textContent).toContain("164.000,00")
+  })
+
   it("deja fuera del total la cuota de préstamo sin importe y avisa que el cálculo está incompleto", async () => {
     setBudget(2026, 3, { salary_ars: 1_000_000, exchange_rate_value: null })
     scenario.expenseOccurrences = [

@@ -144,9 +144,16 @@ export const MonthExpenses = ({
                     {formatOriginalAmount(line)}
                   </TableCell>
                   <TableCell className="px-4 text-right font-mono">
-                    {arsEquivalent === null
-                      ? MISSING_AMOUNT_LABEL
-                      : formatArs(arsEquivalent)}
+                    {/* An ARS line is already ARS: showing its own amount
+                        again as an "equivalent" is meaningless, so only USD
+                        lines get a converted value here. */}
+                    {line.currency !== "usd" ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : arsEquivalent === null ? (
+                      MISSING_AMOUNT_LABEL
+                    ) : (
+                      formatArs(arsEquivalent)
+                    )}
                   </TableCell>
                 </TableRow>
               )
