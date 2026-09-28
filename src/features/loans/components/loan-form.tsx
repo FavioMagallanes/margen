@@ -20,6 +20,8 @@ type LoanFormProps = {
   isSaving: boolean
   errorMessage: string | null
   onSubmit: (values: LoanFormValues) => void
+  /** RF-09: saves and keeps the form open, reset to its defaults. */
+  onSubmitAndAddAnother: (values: LoanFormValues) => void
   onCancel: () => void
 }
 
@@ -31,6 +33,7 @@ export const LoanForm = ({
   isSaving,
   errorMessage,
   onSubmit,
+  onSubmitAndAddAnother,
   onCancel,
 }: LoanFormProps) => {
   const {
@@ -133,6 +136,14 @@ export const LoanForm = ({
       <div className="flex items-center gap-2">
         <Button type="submit" disabled={isSaving}>
           {isSaving ? "Guardando…" : "Guardar préstamo"}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={isSaving}
+          onClick={handleSubmit(onSubmitAndAddAnother)}
+        >
+          Guardar y agregar otro
         </Button>
         <Button
           type="button"

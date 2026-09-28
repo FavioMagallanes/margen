@@ -28,6 +28,10 @@ import {
 } from "@/components/ui/table"
 import { useAuth } from "@/features/auth/use-auth"
 import { parseAmountInputValue } from "@/shared/lib/amount-input"
+import {
+  type DuplicateCandidate,
+  findPossibleDuplicate,
+} from "@/shared/lib/duplicate-expense"
 import { formatArs, roundArs, sumArs } from "@/shared/lib/money"
 import {
   formatPeriodLabel,
@@ -53,6 +57,10 @@ import {
   usePendingLoanInstallmentsQuery,
 } from "../api/loan-queries"
 import {
+  toLoanCandidates,
+  toLoanDraftCandidate,
+} from "../model/loan-duplicates"
+import {
   type LoanEditFormValues,
   type LoanFormValues,
   parsePositiveInteger,
@@ -63,6 +71,7 @@ import {
   isLastInstallment,
   type LoanRow,
 } from "../model/loan-rows"
+import { DuplicateLoanDialog } from "./duplicate-loan-dialog"
 import { LoanEditForm } from "./loan-edit-form"
 import { LoanForm } from "./loan-form"
 import { LoanInstallmentAmountsForm } from "./loan-installment-amounts-form"
@@ -173,6 +182,13 @@ type EditorState =
   | { kind: "edit"; loan: EditableLoan }
   | { kind: "amounts"; row: LoanRow }
 
+/** A loan waiting for the user to answer the duplicate warning (RF-09). */
+type PendingLoan = {
+  input: CreateLoanInput
+  keepFormOpen: boolean
+  duplicate: DuplicateCandidate
+}
+
 type DeleteLoanDialogProps = {
   concept: string
   isDeleting: boolean
@@ -235,17 +251,53 @@ export const LoansPage = () => {
   const deleteLoan = useDeleteLoanMutation(userId)
 
   const [editor, setEditor] = useState<EditorState>({ kind: "closed" })
+  const [pendingCreate, setPendingCreate] = useState<PendingLoan | null>(null)
+  // RF-09: remounting the create form is what resets it to its defaults, so
+  // nothing (not even the installment number) survives the previous load.
+  const [createFormKey, setCreateFormKey] = useState(0)
 
   const closeEditor = () => setEditor({ kind: "closed" })
 
-  const handleCreate = (values: LoanFormValues) => {
+  const saveCreate = (input: CreateLoanInput, keepFormOpen: boolean) => {
+    createLoan.mutate(input, {
+      onSuccess: () => {
+        if (keepFormOpen) {
+          setCreateFormKey((key) => key + 1)
+          return
+        }
+
+        closeEditor()
+      },
+    })
+  }
+
+  const handleCreate = (values: LoanFormValues, keepFormOpen: boolean) => {
     const input = toCreateInput(values, period)
 
     if (input === null) {
       return
     }
 
-    createLoan.mutate(input, { onSuccess: closeEditor })
+    const duplicate = findPossibleDuplicate(
+      toLoanDraftCandidate(input),
+      toLoanCandidates(loansQuery.data ?? [])
+    )
+
+    if (duplicate !== null) {
+      setPendingCreate({ input, keepFormOpen, duplicate })
+      return
+    }
+
+    saveCreate(input, keepFormOpen)
+  }
+
+  const confirmPendingCreate = () => {
+    if (pendingCreate === null) {
+      return
+    }
+
+    setPendingCreate(null)
+    saveCreate(pendingCreate.input, pendingCreate.keepFormOpen)
   }
 
   const handleUpdate = (values: LoanEditFormValues, loan: EditableLoan) => {
@@ -334,16 +386,24 @@ export const LoansPage = () => {
           </CardHeader>
           <CardContent>
             <LoanForm
+              key={createFormKey}
               defaultValues={buildCreateDefaults()}
               period={period}
               isSaving={createLoan.isLoading}
               errorMessage={createLoan.isError ? CREATE_ERROR_MESSAGE : null}
-              onSubmit={handleCreate}
+              onSubmit={(values) => handleCreate(values, false)}
+              onSubmitAndAddAnother={(values) => handleCreate(values, true)}
               onCancel={closeEditor}
             />
           </CardContent>
         </Card>
       ) : null}
+
+      <DuplicateLoanDialog
+        duplicate={pendingCreate?.duplicate ?? null}
+        onReview={() => setPendingCreate(null)}
+        onSaveAnyway={confirmPendingCreate}
+      />
 
       {editor.kind === "edit" ? (
         <Card>

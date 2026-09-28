@@ -530,3 +530,165 @@ describe("LoansPage", () => {
     expect(screen.queryByText(/database exploded/)).toBeNull()
   })
 })
+
+type LoanFields = {
+  concept: string
+  entity: string
+  quotaAmount: string
+  startingInstallment: string
+  totalInstallments: string
+}
+
+const fillLoan = ({
+  concept,
+  entity,
+  quotaAmount,
+  startingInstallment,
+  totalInstallments,
+}: LoanFields) => {
+  fireEvent.change(screen.getByLabelText("Concepto"), {
+    target: { value: concept },
+  })
+  fireEvent.change(screen.getByLabelText("Entidad"), {
+    target: { value: entity },
+  })
+  fireEvent.change(screen.getByLabelText("Importe de la cuota (ARS)"), {
+    target: { value: quotaAmount },
+  })
+  fireEvent.change(screen.getByLabelText("Cuota que se carga"), {
+    target: { value: startingInstallment },
+  })
+  fireEvent.change(screen.getByLabelText("Total de cuotas"), {
+    target: { value: totalInstallments },
+  })
+}
+
+// The very installment already loaded this month, retyped with another
+// casing: RF-09 still considers it «muy parecido».
+const openFormAndRepeatCurrentInstallment = async () => {
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Agregar préstamo" })
+  )
+
+  fillLoan({
+    concept: "préstamo personal",
+    entity: "BBVA",
+    quotaAmount: "120000",
+    startingInstallment: "4",
+    totalInstallments: "12",
+  })
+}
+
+describe("LoansPage: carga rápida (RF-09)", () => {
+  afterEach(cleanup)
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    scenario.occurrences = []
+    scenario.loadError = null
+    scenario.deleteError = null
+    scenario.rpcError = null
+
+    authMock.getSession.mockResolvedValue({
+      data: { session: createFakeSession() },
+      error: null,
+    })
+    authMock.onAuthStateChange.mockReturnValue({
+      data: { subscription: { unsubscribe: vi.fn() } },
+    })
+  })
+
+  it("«Guardar y agregar otro» guarda y deja el formulario abierto y en blanco", async () => {
+    renderLoansPage()
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Agregar préstamo" })
+    )
+
+    fillLoan({
+      concept: "Préstamo personal",
+      entity: "Banco Nación",
+      quotaAmount: "120000",
+      startingInstallment: "4",
+      totalInstallments: "12",
+    })
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Guardar y agregar otro" })
+    )
+
+    await waitFor(() => {
+      expect(rpcMock).toHaveBeenCalledWith(
+        "create_loan",
+        expect.objectContaining({
+          p_concept: "Préstamo personal",
+          p_entity: "Banco Nación",
+          p_starting_installment: 4,
+        })
+      )
+    })
+
+    // The form stays open, reset to its defaults: nothing is dragged from the
+    // previous loan, not even the installment number.
+    await waitFor(() => {
+      expect(screen.getByLabelText("Concepto")).toHaveProperty("value", "")
+    })
+    expect(screen.getByLabelText("Entidad")).toHaveProperty("value", "")
+    expect(screen.getByLabelText("Importe de la cuota (ARS)")).toHaveProperty(
+      "value",
+      ""
+    )
+    expect(screen.getByLabelText("Cuota que se carga")).toHaveProperty(
+      "value",
+      "1"
+    )
+  })
+
+  it("avisa del posible duplicado y no guarda nada si el usuario revisa", async () => {
+    setOccurrences([currentInstallment])
+
+    renderLoansPage()
+
+    await openFormAndRepeatCurrentInstallment()
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar préstamo" }))
+
+    expect(await screen.findByText("¿Ya cargaste este préstamo?")).toBeDefined()
+    expect(
+      screen.getByText(
+        /Ya existe un gasto muy parecido: «Préstamo personal» de BBVA/
+      )
+    ).toBeDefined()
+    expect(rpcMock).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole("button", { name: "Revisar" }))
+
+    await waitFor(() => {
+      expect(screen.queryByText("¿Ya cargaste este préstamo?")).toBeNull()
+    })
+    expect(rpcMock).not.toHaveBeenCalled()
+  })
+
+  it("guarda igual cuando el usuario confirma el aviso", async () => {
+    setOccurrences([currentInstallment])
+
+    renderLoansPage()
+
+    await openFormAndRepeatCurrentInstallment()
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar préstamo" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Cargar igual" }))
+
+    await waitFor(() => {
+      expect(rpcMock).toHaveBeenCalledWith(
+        "create_loan",
+        expect.objectContaining({
+          p_concept: "préstamo personal",
+          p_entity: "BBVA",
+          p_quota_amount: 120_000,
+          p_starting_installment: 4,
+        })
+      )
+    })
+  })
+})
