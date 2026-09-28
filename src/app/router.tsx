@@ -5,6 +5,7 @@ import { PlaceholderPage } from "@/app/pages/placeholder-page"
 import { GuestOnlyRoute } from "@/features/auth/components/guest-only-route"
 import { LoginPage } from "@/features/auth/components/login-page"
 import { RequireAuth } from "@/features/auth/components/require-auth"
+import { CardPurchasesPage } from "@/features/card-purchases/components/card-purchases-page"
 import { MonthlyBudgetPage } from "@/features/monthly-budget/monthly-budget-page"
 import { getCurrentPeriod } from "@/shared/lib/period"
 
@@ -34,7 +35,7 @@ export const router = createBrowserRouter([
         element: <AppShell />,
         children: [
           { index: true, element: <MonthlyBudgetPage /> },
-          { path: "cards", element: <PlaceholderPage title="Tarjetas" /> },
+          { path: "cards", element: <CardPurchasesPage /> },
           { path: "loans", element: <PlaceholderPage title="Préstamos" /> },
           {
             path: "recurring",
