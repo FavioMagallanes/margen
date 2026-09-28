@@ -732,3 +732,279 @@ describe("CardPurchasesPage: carga rápida (RF-09)", () => {
     expect(screen.queryByText("¿Ya cargaste esta compra?")).toBeNull()
   })
 })
+
+// RF-09 "carga de varios gastos": the batch shares the card and the month of
+// the route, so every item only carries its own fields.
+type BatchItemFields = {
+  concept: string
+  quotaAmount: string
+  startingInstallment: string
+  totalInstallments: string
+}
+
+const groupOf = (name: string) => within(screen.getByRole("group", { name }))
+
+const selectOptionIn = (
+  groupName: string,
+  fieldLabel: string,
+  optionLabel: string
+) => {
+  fireEvent.click(
+    groupOf(groupName).getByRole("combobox", { name: fieldLabel })
+  )
+
+  const option = screen.getByRole("option", { name: optionLabel })
+
+  fireEvent.pointerDown(option)
+  fireEvent.click(option)
+}
+
+const fillBatchItem = (
+  groupName: string,
+  {
+    concept,
+    quotaAmount,
+    startingInstallment,
+    totalInstallments,
+  }: BatchItemFields
+) => {
+  const group = groupOf(groupName)
+
+  fireEvent.change(group.getByLabelText("Concepto"), {
+    target: { value: concept },
+  })
+  fireEvent.change(group.getByLabelText("Importe de la cuota"), {
+    target: { value: quotaAmount },
+  })
+  fireEvent.change(group.getByLabelText("Cuota que se carga"), {
+    target: { value: startingInstallment },
+  })
+  fireEvent.change(group.getByLabelText("Total de cuotas"), {
+    target: { value: totalInstallments },
+  })
+}
+
+const DRAFT_GROUP = "Nueva compra del lote"
+
+const addBatchItem = (fields: BatchItemFields) => {
+  fillBatchItem(DRAFT_GROUP, fields)
+  fireEvent.click(screen.getByRole("button", { name: "Agregar a la lista" }))
+}
+
+const openBatchPanel = async () => {
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Cargar varias compras" })
+  )
+}
+
+describe("CardPurchasesPage: carga de varias compras (RF-09)", () => {
+  afterEach(cleanup)
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    scenario.occurrences = []
+    scenario.budgets.clear()
+    scenario.loadError = null
+    scenario.deleteError = null
+    scenario.rpcError = null
+
+    authMock.getSession.mockResolvedValue({
+      data: { session: createFakeSession() },
+      error: null,
+    })
+    authMock.onAuthStateChange.mockReturnValue({
+      data: { subscription: { unsubscribe: vi.fn() } },
+    })
+  })
+
+  it("guarda varias compras del mes en una sola llamada atómica", async () => {
+    renderCardPurchasesPage()
+
+    await openBatchPanel()
+
+    selectOptionIn("Nueva compra del lote", "Moneda", "Pesos (ARS)")
+    selectOption("Tarjeta del lote", "Supervielle")
+
+    addBatchItem({
+      concept: "Notebook",
+      quotaAmount: "45000",
+      startingInstallment: "3",
+      totalInstallments: "6",
+    })
+    addBatchItem({
+      concept: "Monitor",
+      quotaAmount: "30000",
+      startingInstallment: "1",
+      totalInstallments: "3",
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar lote" }))
+
+    await waitFor(() => {
+      expect(rpcMock).toHaveBeenCalledWith("create_card_purchases_batch", {
+        p_card: "Supervielle",
+        p_year: VIEWED_PERIOD.year,
+        p_month: VIEWED_PERIOD.month,
+        p_items: [
+          {
+            concept: "Notebook",
+            currency: "ars",
+            quota_amount: 45_000,
+            starting_installment: 3,
+            total_installments: 6,
+          },
+          {
+            concept: "Monitor",
+            currency: "ars",
+            quota_amount: 30_000,
+            starting_installment: 1,
+            total_installments: 3,
+          },
+        ],
+      })
+    })
+  })
+
+  it("deja corregir y quitar ítems antes de confirmar el lote", async () => {
+    renderCardPurchasesPage()
+
+    await openBatchPanel()
+
+    addBatchItem({
+      concept: "Notebok",
+      quotaAmount: "45000",
+      startingInstallment: "3",
+      totalInstallments: "6",
+    })
+    addBatchItem({
+      concept: "Monitor",
+      quotaAmount: "30000",
+      startingInstallment: "1",
+      totalInstallments: "3",
+    })
+
+    fireEvent.change(groupOf("Compra 1").getByLabelText("Concepto"), {
+      target: { value: "Notebook" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Quitar compra 2" }))
+
+    expect(screen.queryByRole("group", { name: "Compra 2" })).toBeNull()
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar lote" }))
+
+    await waitFor(() => {
+      expect(rpcMock).toHaveBeenCalledWith(
+        "create_card_purchases_batch",
+        expect.objectContaining({
+          p_items: [
+            {
+              concept: "Notebook",
+              currency: "ars",
+              quota_amount: 45_000,
+              starting_installment: 3,
+              total_installments: 6,
+            },
+          ],
+        })
+      )
+    })
+  })
+
+  it("un ítem inválido bloquea el guardado de todo el lote", async () => {
+    renderCardPurchasesPage()
+
+    await openBatchPanel()
+
+    addBatchItem({
+      concept: "Notebook",
+      quotaAmount: "45000",
+      startingInstallment: "3",
+      totalInstallments: "6",
+    })
+    addBatchItem({
+      concept: "Monitor",
+      quotaAmount: "30000",
+      startingInstallment: "1",
+      totalInstallments: "3",
+    })
+
+    // The second item is corrected into an impossible installment after being
+    // added: the whole batch has to stop, not save the valid one.
+    fireEvent.change(groupOf("Compra 2").getByLabelText("Total de cuotas"), {
+      target: { value: "1" },
+    })
+    fireEvent.change(groupOf("Compra 2").getByLabelText("Cuota que se carga"), {
+      target: { value: "5" },
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar lote" }))
+
+    expect(
+      await screen.findByText(
+        "Revisá la compra 2 de la lista: todavía tiene datos incompletos. No se guardó nada."
+      )
+    ).toBeDefined()
+    expect(
+      groupOf("Compra 2").getByText(
+        "La cuota inicial no puede superar el total de cuotas"
+      )
+    ).toBeDefined()
+    expect(rpcMock).not.toHaveBeenCalled()
+  })
+
+  it("avisa cuando el ítem repite un gasto ya cargado del mes", async () => {
+    setOccurrences([notebookOccurrence])
+
+    renderCardPurchasesPage()
+
+    await openBatchPanel()
+
+    fillBatchItem(DRAFT_GROUP, {
+      concept: "  notebook ",
+      quotaAmount: "45000",
+      startingInstallment: "4",
+      totalInstallments: "6",
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Agregar a la lista" }))
+
+    expect(await screen.findByText("¿Ya cargaste esta compra?")).toBeDefined()
+    expect(screen.queryByRole("group", { name: "Compra 1" })).toBeNull()
+
+    fireEvent.click(screen.getByRole("button", { name: "Cargar igual" }))
+
+    expect(await screen.findByRole("group", { name: "Compra 1" })).toBeDefined()
+  })
+
+  it("avisa cuando el ítem repite otro ítem del mismo lote", async () => {
+    renderCardPurchasesPage()
+
+    await openBatchPanel()
+
+    addBatchItem({
+      concept: "Notebook",
+      quotaAmount: "45000",
+      startingInstallment: "3",
+      totalInstallments: "6",
+    })
+
+    fillBatchItem(DRAFT_GROUP, {
+      concept: "NOTEBOOK",
+      quotaAmount: "45000",
+      startingInstallment: "3",
+      totalInstallments: "6",
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Agregar a la lista" }))
+
+    expect(await screen.findByText("¿Ya cargaste esta compra?")).toBeDefined()
+    expect(screen.queryByRole("group", { name: "Compra 2" })).toBeNull()
+
+    // «Revisar» never adds the item: the list keeps the single purchase.
+    fireEvent.click(screen.getByRole("button", { name: "Revisar" }))
+
+    await waitFor(() => {
+      expect(screen.queryByText("¿Ya cargaste esta compra?")).toBeNull()
+    })
+    expect(screen.queryByRole("group", { name: "Compra 2" })).toBeNull()
+    expect(rpcMock).not.toHaveBeenCalled()
+  })
+})

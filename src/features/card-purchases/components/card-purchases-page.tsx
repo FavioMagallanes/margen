@@ -43,12 +43,15 @@ import {
 } from "@/shared/lib/period"
 
 import {
+  CREATE_BATCH_ERROR_MESSAGE,
   CREATE_ERROR_MESSAGE,
   type CreateCardPurchaseInput,
+  type CreateCardPurchasesBatchInput,
   DELETE_ERROR_MESSAGE,
   UPDATE_ERROR_MESSAGE,
   type UpdateCardPurchaseInput,
   useCreateCardPurchaseMutation,
+  useCreateCardPurchasesBatchMutation,
   useDeleteCardPurchaseMutation,
   useUpdateCardPurchaseMutation,
 } from "../api/card-purchase-mutations"
@@ -69,6 +72,7 @@ import {
   groupPurchasesByCard,
   isLastInstallment,
 } from "../model/card-purchase-groups"
+import { CardPurchaseBatchPanel } from "./card-purchase-batch-panel"
 import { CardPurchaseForm } from "./card-purchase-form"
 import { DuplicateCardPurchaseDialog } from "./duplicate-card-purchase-dialog"
 
@@ -222,6 +226,7 @@ const toUpdateInput = (
 type EditorState =
   | { kind: "closed" }
   | { kind: "create" }
+  | { kind: "batch" }
   | { kind: "edit"; purchase: EditableCardPurchase }
 
 /** A purchase waiting for the user to answer the duplicate warning (RF-09). */
@@ -291,6 +296,7 @@ export const CardPurchasesPage = () => {
   const budgetQuery = useMonthlyBudgetQuery(userId, period)
   const arsPerUsd = budgetQuery.data?.exchangeRateValue ?? null
   const createPurchase = useCreateCardPurchaseMutation(userId)
+  const createPurchasesBatch = useCreateCardPurchasesBatchMutation(userId)
   const updatePurchase = useUpdateCardPurchaseMutation(userId)
   const deletePurchase = useDeleteCardPurchaseMutation(userId)
 
@@ -358,6 +364,12 @@ export const CardPurchasesPage = () => {
     saveCreate(pendingCreate.input, pendingCreate.keepFormOpen)
   }
 
+  const saveBatch = (input: CreateCardPurchasesBatchInput) => {
+    // A failed batch keeps the panel open with its list intact, so nothing the
+    // user already typed is lost.
+    createPurchasesBatch.mutate(input, { onSuccess: closeEditor })
+  }
+
   const handleUpdate = (
     values: CardPurchaseFormValues,
     purchase: EditableCardPurchase
@@ -411,9 +423,18 @@ export const CardPurchasesPage = () => {
         </div>
 
         {editor.kind === "closed" ? (
-          <Button type="button" onClick={() => setEditor({ kind: "create" })}>
-            Agregar compra
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button type="button" onClick={() => setEditor({ kind: "create" })}>
+              Agregar compra
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setEditor({ kind: "batch" })}
+            >
+              Cargar varias compras
+            </Button>
+          </div>
         ) : null}
       </div>
 
@@ -433,6 +454,26 @@ export const CardPurchasesPage = () => {
               }
               onSubmit={(values) => handleCreate(values, false)}
               onSubmitAndAddAnother={(values) => handleCreate(values, true)}
+              onCancel={closeEditor}
+            />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {editor.kind === "batch" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Cargar varias compras</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CardPurchaseBatchPanel
+              period={period}
+              existingRows={rows}
+              isSaving={createPurchasesBatch.isLoading}
+              errorMessage={
+                createPurchasesBatch.isError ? CREATE_BATCH_ERROR_MESSAGE : null
+              }
+              onSave={(card, items) => saveBatch({ card, period, items })}
               onCancel={closeEditor}
             />
           </CardContent>

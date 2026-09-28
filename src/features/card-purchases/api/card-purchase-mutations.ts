@@ -7,6 +7,7 @@ import {
 import type { Period } from "@/shared/lib/period"
 import { supabase } from "@/shared/lib/supabase/client"
 
+import type { CardPurchaseBatchItem } from "../model/card-purchase-batch"
 import type {
   CardOption,
   CardPurchaseCurrency,
@@ -15,6 +16,9 @@ import { cardPurchaseKeys } from "./card-purchase-queries"
 
 export const CREATE_ERROR_MESSAGE =
   "No pudimos guardar la compra. Intentá de nuevo en un momento."
+
+export const CREATE_BATCH_ERROR_MESSAGE =
+  "No pudimos guardar el lote de compras. No se guardó ninguna: revisá los datos e intentá de nuevo."
 
 export const UPDATE_ERROR_MESSAGE =
   "No pudimos editar la compra. Intentá de nuevo en un momento."
@@ -30,6 +34,12 @@ export type CreateCardPurchaseInput = {
   startingInstallment: number
   totalInstallments: number
   period: Period
+}
+
+export type CreateCardPurchasesBatchInput = {
+  card: CardOption
+  period: Period
+  items: readonly CardPurchaseBatchItem[]
 }
 
 export type UpdateCardPurchaseInput = {
@@ -94,6 +104,42 @@ export const useCreateCardPurchaseMutation = (
       if (error) {
         // The Supabase detail stays out of the UI.
         throw new Error(CREATE_ERROR_MESSAGE)
+      }
+    },
+    onSuccess: () => {
+      if (userId !== null) {
+        invalidateAffectedMonths(queryClient, userId)
+      }
+    },
+  })
+}
+
+export const useCreateCardPurchasesBatchMutation = (
+  userId: string | null
+): UseMutationResult<void, Error, CreateCardPurchasesBatchInput> => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: CreateCardPurchasesBatchInput) => {
+      requireUserId(userId)
+
+      // RF-09: one call for the whole batch, so either every purchase of the
+      // list lands or none does.
+      const { error } = await supabase.rpc("create_card_purchases_batch", {
+        p_card: input.card,
+        p_year: input.period.year,
+        p_month: input.period.month,
+        p_items: input.items.map((item) => ({
+          concept: item.concept,
+          currency: item.currency,
+          quota_amount: item.quotaAmount,
+          starting_installment: item.startingInstallment,
+          total_installments: item.totalInstallments,
+        })),
+      })
+
+      if (error) {
+        throw new Error(CREATE_BATCH_ERROR_MESSAGE)
       }
     },
     onSuccess: () => {
