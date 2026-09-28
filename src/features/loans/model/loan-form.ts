@@ -139,43 +139,63 @@ export const loanEditSchema = loanEditFields.superRefine((values, ctx) => {
 
 // The project does not depend on @hookform/resolvers, so each Zod schema is
 // bridged to react-hook-form by hand, like the card purchase and salary forms.
-const toResolver =
-  <TValues extends Record<string, unknown>>(
-    schema: z.ZodType<TValues, TValues>,
-    fields: readonly (keyof TValues)[]
-  ): Resolver<TValues> =>
-  (values) => {
-    const result = schema.safeParse(values)
-
-    if (result.success) {
-      return { values: result.data, errors: {} }
-    }
-
-    const errors: FieldErrors<TValues> = {}
-
-    for (const issue of result.error.issues) {
-      const [field] = issue.path
-      const knownField = fields.find((candidate) => candidate === field)
-
-      if (knownField !== undefined && errors[knownField] === undefined) {
-        errors[knownField] = { type: issue.code, message: issue.message }
-      }
-    }
-
-    return { values: {}, errors }
-  }
-
-export const loanResolver = toResolver<LoanFormValues>(loanSchema, [
+const LOAN_FIELDS = [
   "concept",
   "entity",
   "quotaAmount",
   "startingInstallment",
   "totalInstallments",
-])
+] as const
 
-export const loanEditResolver = toResolver<LoanEditFormValues>(loanEditSchema, [
+const isLoanField = (field: unknown): field is keyof LoanFormValues =>
+  LOAN_FIELDS.some((knownField) => knownField === field)
+
+export const loanResolver: Resolver<LoanFormValues> = (values) => {
+  const result = loanSchema.safeParse(values)
+
+  if (result.success) {
+    return { values: result.data, errors: {} }
+  }
+
+  const errors: FieldErrors<LoanFormValues> = {}
+
+  for (const issue of result.error.issues) {
+    const [field] = issue.path
+
+    if (isLoanField(field) && errors[field] === undefined) {
+      errors[field] = { type: issue.code, message: issue.message }
+    }
+  }
+
+  return { values: {}, errors }
+}
+
+const LOAN_EDIT_FIELDS = [
   "concept",
   "entity",
   "totalInstallments",
   "editedInstallment",
-])
+] as const
+
+const isLoanEditField = (field: unknown): field is keyof LoanEditFormValues =>
+  LOAN_EDIT_FIELDS.some((knownField) => knownField === field)
+
+export const loanEditResolver: Resolver<LoanEditFormValues> = (values) => {
+  const result = loanEditSchema.safeParse(values)
+
+  if (result.success) {
+    return { values: result.data, errors: {} }
+  }
+
+  const errors: FieldErrors<LoanEditFormValues> = {}
+
+  for (const issue of result.error.issues) {
+    const [field] = issue.path
+
+    if (isLoanEditField(field) && errors[field] === undefined) {
+      errors[field] = { type: issue.code, message: issue.message }
+    }
+  }
+
+  return { values: {}, errors }
+}
