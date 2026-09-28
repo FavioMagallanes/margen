@@ -25,6 +25,8 @@ type RecurringExpenseFormProps = {
   isSaving: boolean
   errorMessage: string | null
   onSubmit: (values: RecurringFormValues) => void
+  /** RF-09: saves and keeps the form open, reset to its defaults. */
+  onSubmitAndAddAnother: (values: RecurringFormValues) => void
   onCancel: () => void
 }
 
@@ -34,6 +36,7 @@ export const RecurringExpenseForm = ({
   isSaving,
   errorMessage,
   onSubmit,
+  onSubmitAndAddAnother,
   onCancel,
 }: RecurringExpenseFormProps) => {
   const {
@@ -185,6 +188,14 @@ export const RecurringExpenseForm = ({
       <div className="flex items-center gap-2">
         <Button type="submit" disabled={isSaving}>
           {isSaving ? "Guardando…" : "Guardar recurrente"}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={isSaving}
+          onClick={handleSubmit(onSubmitAndAddAnother)}
+        >
+          Guardar y agregar otro
         </Button>
         <Button
           type="button"

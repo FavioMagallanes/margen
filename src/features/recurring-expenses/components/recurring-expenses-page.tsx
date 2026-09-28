@@ -27,6 +27,10 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useAuth } from "@/features/auth/use-auth"
+import {
+  type DuplicateCandidate,
+  findPossibleDuplicate,
+} from "@/shared/lib/duplicate-expense"
 import { formatArs } from "@/shared/lib/money"
 import {
   formatPeriodLabel,
@@ -53,6 +57,11 @@ import {
   useRecurringPlansQuery,
 } from "../api/recurring-expense-queries"
 import {
+  toRecurringCandidates,
+  toRecurringDraftCandidate,
+} from "../model/recurring-duplicates"
+import {
+  type CreateRecurringPlanInput,
   formatRecurringAmountInput,
   isRecurringCurrency,
   isRecurringGroup,
@@ -68,6 +77,7 @@ import {
   type RecurringRow,
   toPendingRecurringPlans,
 } from "../model/recurring-plans"
+import { DuplicateRecurringDialog } from "./duplicate-recurring-dialog"
 import { RecurringAmountForm } from "./recurring-amount-form"
 import { RecurringExpenseEditForm } from "./recurring-expense-edit-form"
 import { RecurringExpenseForm } from "./recurring-expense-form"
@@ -155,6 +165,13 @@ type EditorState =
   | { kind: "edit"; recurring: EditableRecurring }
   | { kind: "amount"; row: RecurringRow }
 
+/** A recurring expense waiting for the duplicate warning answer (RF-09). */
+type PendingRecurring = {
+  input: CreateRecurringPlanInput
+  keepFormOpen: boolean
+  duplicate: DuplicateCandidate
+}
+
 type ConfirmDialogProps = {
   trigger: string
   title: string
@@ -233,17 +250,61 @@ export const RecurringExpensesPage = () => {
   const deleteRecurring = useDeleteRecurringMutation(userId)
 
   const [editor, setEditor] = useState<EditorState>({ kind: "closed" })
+  const [pendingCreate, setPendingCreate] = useState<PendingRecurring | null>(
+    null
+  )
+  // RF-09: remounting the create form is what resets it to its defaults, so
+  // nothing survives the previous load.
+  const [createFormKey, setCreateFormKey] = useState(0)
 
   const closeEditor = () => setEditor({ kind: "closed" })
 
-  const handleCreate = (values: RecurringFormValues) => {
+  const saveCreate = (
+    input: CreateRecurringPlanInput,
+    keepFormOpen: boolean
+  ) => {
+    createRecurring.mutate(
+      { ...input, period },
+      {
+        onSuccess: () => {
+          if (keepFormOpen) {
+            setCreateFormKey((key) => key + 1)
+            return
+          }
+
+          closeEditor()
+        },
+      }
+    )
+  }
+
+  const handleCreate = (values: RecurringFormValues, keepFormOpen: boolean) => {
     const input = toCreateRecurringPlanInput(values)
 
     if (input === null) {
       return
     }
 
-    createRecurring.mutate({ ...input, period }, { onSuccess: closeEditor })
+    const duplicate = findPossibleDuplicate(
+      toRecurringDraftCandidate(input),
+      toRecurringCandidates(occurrencesQuery.data ?? [])
+    )
+
+    if (duplicate !== null) {
+      setPendingCreate({ input, keepFormOpen, duplicate })
+      return
+    }
+
+    saveCreate(input, keepFormOpen)
+  }
+
+  const confirmPendingCreate = () => {
+    if (pendingCreate === null) {
+      return
+    }
+
+    setPendingCreate(null)
+    saveCreate(pendingCreate.input, pendingCreate.keepFormOpen)
   }
 
   const handleUpdate = (
@@ -331,18 +392,26 @@ export const RecurringExpensesPage = () => {
           </CardHeader>
           <CardContent>
             <RecurringExpenseForm
+              key={createFormKey}
               defaultValues={buildCreateDefaults()}
               period={period}
               isSaving={createRecurring.isLoading}
               errorMessage={
                 createRecurring.isError ? CREATE_ERROR_MESSAGE : null
               }
-              onSubmit={handleCreate}
+              onSubmit={(values) => handleCreate(values, false)}
+              onSubmitAndAddAnother={(values) => handleCreate(values, true)}
               onCancel={closeEditor}
             />
           </CardContent>
         </Card>
       ) : null}
+
+      <DuplicateRecurringDialog
+        duplicate={pendingCreate?.duplicate ?? null}
+        onReview={() => setPendingCreate(null)}
+        onSaveAnyway={confirmPendingCreate}
+      />
 
       {editor.kind === "generate" ? (
         <Card>

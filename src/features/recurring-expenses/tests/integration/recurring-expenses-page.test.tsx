@@ -624,3 +624,105 @@ describe("RecurringExpensesPage", () => {
     expect(screen.queryByText(/database exploded/)).toBeNull()
   })
 })
+
+describe("RecurringExpensesPage: carga rápida (RF-09)", () => {
+  afterEach(cleanup)
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    scenario.plans = []
+    scenario.occurrences = []
+    scenario.loadError = null
+    scenario.deleteError = null
+    scenario.rpcError = null
+
+    authMock.getSession.mockResolvedValue({
+      data: { session: createFakeSession() },
+      error: null,
+    })
+    authMock.onAuthStateChange.mockReturnValue({
+      data: { subscription: { unsubscribe: vi.fn() } },
+    })
+  })
+
+  it("«Guardar y agregar otro» guarda y deja el formulario abierto y en blanco", async () => {
+    renderRecurringPage()
+    await openCreateForm()
+
+    fireEvent.change(screen.getByLabelText("Concepto"), {
+      target: { value: "Internet" },
+    })
+    fireEvent.change(screen.getByLabelText("Importe de este mes"), {
+      target: { value: "45000" },
+    })
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Guardar y agregar otro" })
+    )
+
+    await waitFor(() => {
+      expect(rpcMock).toHaveBeenCalledWith(
+        "create_recurring_plan",
+        expect.objectContaining({ p_concept: "Internet" })
+      )
+    })
+
+    // The form stays open, reset to its defaults.
+    await waitFor(() => {
+      expect(screen.getByLabelText("Concepto")).toHaveProperty("value", "")
+    })
+    expect(screen.getByLabelText("Importe de este mes")).toHaveProperty(
+      "value",
+      ""
+    )
+  })
+
+  it("avisa del posible duplicado y respeta «Revisar» y «Cargar igual»", async () => {
+    scenario.plans = [internetPlan]
+    scenario.occurrences = [internetMarch]
+
+    renderRecurringPage()
+    await openCreateForm()
+
+    // The same recurring expense already generated this month, retyped with
+    // another casing: RF-09 still considers it «muy parecido».
+    fireEvent.change(screen.getByLabelText("Concepto"), {
+      target: { value: "internet" },
+    })
+    fireEvent.change(screen.getByLabelText("Importe de este mes"), {
+      target: { value: "45000" },
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar recurrente" }))
+
+    expect(
+      await screen.findByText("¿Ya cargaste este recurrente?")
+    ).toBeDefined()
+    expect(
+      screen.getByText(
+        /Ya existe un gasto muy parecido: «Internet» en Otros gastos/
+      )
+    ).toBeDefined()
+    expect(rpcMock).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole("button", { name: "Revisar" }))
+
+    await waitFor(() => {
+      expect(screen.queryByText("¿Ya cargaste este recurrente?")).toBeNull()
+    })
+    expect(rpcMock).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar recurrente" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Cargar igual" }))
+
+    await waitFor(() => {
+      expect(rpcMock).toHaveBeenCalledWith(
+        "create_recurring_plan",
+        expect.objectContaining({
+          p_concept: "internet",
+          p_starting_amount: 45_000,
+        })
+      )
+    })
+  })
+})
