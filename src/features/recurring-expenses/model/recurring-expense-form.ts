@@ -45,6 +45,18 @@ export type RecurringAmountMode = (typeof RECURRING_AMOUNT_MODE_OPTIONS)[number]
 
 export type RecurringDuration = (typeof RECURRING_DURATION_OPTIONS)[number]
 
+/**
+ * The stored group and currency are plain text columns, so a row only fits the
+ * edit form when its values are still part of the closed lists it offers.
+ */
+export const isRecurringGroup = (value: string): value is RecurringGroup =>
+  RECURRING_GROUP_OPTIONS.some((option) => option === value)
+
+export const isRecurringCurrency = (
+  value: string
+): value is RecurringCurrency =>
+  RECURRING_CURRENCY_OPTIONS.some((option) => option === value)
+
 const CONCEPT_MESSAGE = "Ingresá el concepto del recurrente"
 const GROUP_MESSAGE = "Elegí dónde se agrupa el recurrente"
 const CURRENCY_MESSAGE = "Elegí la moneda del recurrente"
