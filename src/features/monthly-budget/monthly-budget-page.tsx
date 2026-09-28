@@ -21,6 +21,7 @@ import {
   useMonthExpenseLinesQuery,
   useMonthlyBudgetQuery,
 } from "./api/monthly-budget-queries"
+import { ExchangeRatePanel } from "./components/exchange-rate-panel"
 import { MonthExpenses } from "./components/month-expenses"
 import { SalaryForm } from "./components/salary-form"
 import { computeExpenseTotal } from "./model/expense-total"
@@ -180,6 +181,21 @@ export const MonthlyBudgetPage = () => {
               <AlertDescription>{INCOMPLETE_TOTAL_MESSAGE}</AlertDescription>
             </Alert>
           )}
+        </CardContent>
+
+        <CardContent>
+          <ExchangeRatePanel
+            userId={userId}
+            period={period}
+            currentRate={arsPerUsd}
+            source={budgetQuery.data?.exchangeRateSource ?? null}
+            fetchedAt={budgetQuery.data?.exchangeRateFetchedAt ?? null}
+            sourceUpdatedAt={
+              budgetQuery.data?.exchangeRateSourceUpdatedAt ?? null
+            }
+            salaryArs={salaryArs}
+            expenseLines={expenseLines}
+          />
         </CardContent>
       </Card>
 
