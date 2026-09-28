@@ -37,7 +37,7 @@ export const AppShell = () => {
           </div>
         </header>
 
-        <main className="px-4 pt-6 pb-24 lg:px-8 lg:pb-10">
+        <main className="mx-auto w-full max-w-5xl px-4 pt-6 pb-24 lg:px-8 lg:pb-10">
           <Outlet />
         </main>
       </div>
