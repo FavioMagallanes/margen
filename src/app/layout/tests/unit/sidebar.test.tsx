@@ -3,7 +3,7 @@ import { MemoryRouter } from "react-router"
 import { cleanup, render, screen, within } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vitest"
 
-import { Sidebar } from "@/app/layout/Sidebar"
+import { Sidebar } from "@/app/layout/sidebar"
 
 const NAV_LABELS = [
   "Presupuesto",
