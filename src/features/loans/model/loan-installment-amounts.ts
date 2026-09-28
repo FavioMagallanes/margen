@@ -1,4 +1,5 @@
 import { parseAmountInputValue } from "@/shared/lib/amount-input"
+import type { Period } from "@/shared/lib/period"
 
 import { isLoanAmount } from "./loan-form"
 
@@ -26,6 +27,21 @@ export type LoanInstallmentAmountsResult =
   | { status: "invalid"; errors: Record<string, string> }
 
 const AMOUNT_MESSAGE = "Ingresá un importe mayor a cero o dejá la cuota vacía"
+
+/**
+ * RF-03: a missing amount in a month that already happened is what makes the
+ * subtotal of this page incomplete. A future installment without amount is
+ * expected instead, so it does not raise the warning.
+ */
+export const countMissingInstallmentsUpTo = (
+  installments: readonly PendingLoanInstallment[],
+  { year, month }: Period
+): number =>
+  installments.filter(
+    (installment) =>
+      installment.year < year ||
+      (installment.year === year && installment.month <= month)
+  ).length
 
 export const parseLoanInstallmentAmounts = (
   draftAmounts: Readonly<Record<string, string>>
