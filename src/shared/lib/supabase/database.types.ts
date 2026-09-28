@@ -47,6 +47,7 @@ export type Database = {
           created_at: string
           id: string
           installment_number: number | null
+          is_skipped: boolean
           month: number
           plan_id: string
           updated_at: string
@@ -59,6 +60,7 @@ export type Database = {
           created_at?: string
           id?: string
           installment_number?: number | null
+          is_skipped?: boolean
           month: number
           plan_id: string
           updated_at?: string
@@ -71,6 +73,7 @@ export type Database = {
           created_at?: string
           id?: string
           installment_number?: number | null
+          is_skipped?: boolean
           month?: number
           plan_id?: string
           updated_at?: string
@@ -243,8 +246,37 @@ export type Database = {
         }
         Returns: string
       }
+      create_recurring_plan: {
+        Args: {
+          p_concept: string
+          p_currency: string
+          p_default_amount?: number
+          p_group_label: string
+          p_month: number
+          p_starting_amount: number
+          p_total_installments?: number
+          p_year: number
+        }
+        Returns: string
+      }
       set_loan_installment_amounts: {
         Args: { p_items: Json }
+        Returns: undefined
+      }
+      set_recurring_occurrence_amount: {
+        Args: {
+          p_amount: number
+          p_is_estimated: boolean
+          p_occurrence_id: string
+        }
+        Returns: undefined
+      }
+      set_recurring_occurrences: {
+        Args: { p_items: Json; p_month: number; p_year: number }
+        Returns: undefined
+      }
+      stop_recurring_plan: {
+        Args: { p_from_month: number; p_from_year: number; p_plan_id: string }
         Returns: undefined
       }
       update_card_purchase: {
@@ -270,6 +302,19 @@ export type Database = {
           p_from_year: number
           p_plan_id: string
           p_total_installments: number
+        }
+        Returns: undefined
+      }
+      update_recurring_plan: {
+        Args: {
+          p_concept: string
+          p_currency: string
+          p_default_amount?: number
+          p_from_month: number
+          p_from_year: number
+          p_group_label: string
+          p_plan_id: string
+          p_total_installments?: number
         }
         Returns: undefined
       }
