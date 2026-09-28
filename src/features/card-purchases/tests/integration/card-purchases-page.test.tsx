@@ -14,6 +14,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { AuthProvider } from "@/features/auth/auth-provider"
 import { createFakeSession } from "@/features/auth/tests/fixtures/session"
 import { CardPurchasesPage } from "@/features/card-purchases/components/card-purchases-page"
+import { getCurrentPeriod, type Period } from "@/shared/lib/period"
+
+type StoredBudget = {
+  salary_ars: number | null
+  exchange_rate_value: number | null
+}
 
 type StoredOccurrence = {
   id: string
@@ -40,6 +46,7 @@ const { authMock, fromMock, rpcMock, deleteMock, selectFiltersMock, scenario } =
 
     const scenario = {
       occurrences: [] as Occurrence[],
+      budgets: new Map<string, StoredBudget>(),
       loadError: null as { message: string } | null,
       deleteError: null as { message: string } | null,
       rpcError: null as { message: string } | null,
@@ -68,6 +75,14 @@ const { authMock, fromMock, rpcMock, deleteMock, selectFiltersMock, scenario } =
 
         selectFiltersMock(table, filters)
 
+        if (table === "monthly_budgets") {
+          const stored = scenario.budgets.get(
+            `${filters.year}-${filters.month}`
+          )
+
+          return { data: stored ?? null, error: null }
+        }
+
         // The real query filters the embedded plan with "!inner"; the mock
         // applies the same filter so a missing one would show other kinds.
         const kindFilter = filters["spending_plans.kind"]
@@ -92,6 +107,7 @@ const { authMock, fromMock, rpcMock, deleteMock, selectFiltersMock, scenario } =
 
           return builder
         },
+        maybeSingle: () => Promise.resolve(result()),
         then: <TFulfilled = QueryResult, TRejected = never>(
           onfulfilled?:
             | ((value: QueryResult) => TFulfilled | PromiseLike<TFulfilled>)
@@ -172,6 +188,27 @@ const setOccurrences = (occurrences: StoredOccurrence[]) => {
   scenario.occurrences = occurrences
 }
 
+const setBudget = ({ year, month }: Period, budget: StoredBudget) => {
+  scenario.budgets.set(`${year}-${month}`, budget)
+}
+
+// The route decides which month the page is looking at; the form, instead,
+// always works against the real current month.
+const VIEWED_PERIOD: Period = { year: 2026, month: 3 }
+
+const MONTHS_PER_YEAR = 12
+
+const monthNameFormatter = new Intl.DateTimeFormat("es-AR", {
+  month: "long",
+  timeZone: "UTC",
+})
+
+const monthLabel = ({ year, month }: Period) => {
+  const name = monthNameFormatter.format(Date.UTC(year, month - 1, 1))
+
+  return name.charAt(0).toUpperCase() + name.slice(1)
+}
+
 const renderCardPurchasesPage = () => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -180,7 +217,11 @@ const renderCardPurchasesPage = () => {
   render(
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <MemoryRouter initialEntries={["/months/2026/3/cards"]}>
+        <MemoryRouter
+          initialEntries={[
+            `/months/${VIEWED_PERIOD.year}/${VIEWED_PERIOD.month}/cards`,
+          ]}
+        >
           <Routes>
             <Route
               path="/months/:year/:month/cards"
@@ -215,6 +256,7 @@ describe("CardPurchasesPage", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     scenario.occurrences = []
+    scenario.budgets.clear()
     scenario.loadError = null
     scenario.deleteError = null
     scenario.rpcError = null
@@ -259,10 +301,57 @@ describe("CardPurchasesPage", () => {
     expect(rowOf("Auriculares").getByText("Última cuota")).toBeDefined()
 
     expect(selectFiltersMock).toHaveBeenCalledWith("expense_occurrences", {
-      year: 2026,
-      month: 3,
+      year: VIEWED_PERIOD.year,
+      month: VIEWED_PERIOD.month,
       "spending_plans.kind": "card_purchase",
     })
+  })
+
+  it("muestra «Sin dato» en el equivalente en ARS cuando el mes no tiene cotización", async () => {
+    setOccurrences([lastInstallmentOccurrence])
+
+    renderCardPurchasesPage()
+
+    expect(await screen.findByText("Equivalente en ARS")).toBeDefined()
+    expect(rowOf("Auriculares").getByText("Sin dato")).toBeDefined()
+  })
+
+  it("convierte la cuota en USD con la cotización guardada del mes", async () => {
+    setBudget(VIEWED_PERIOD, { salary_ars: null, exchange_rate_value: 1500 })
+    setOccurrences([lastInstallmentOccurrence])
+
+    renderCardPurchasesPage()
+
+    // 120 USD * 1500 = 180.000 ARS.
+    await screen.findByRole("row", { name: /Auriculares/ })
+    expect(rowOf("Auriculares").getByText(/180\.000,00/)).toBeDefined()
+    expect(rowOf("Auriculares").queryByText("Sin dato")).toBeNull()
+  })
+
+  it("solo ofrece meses del mes real actual hasta diciembre, sin pedir el año", async () => {
+    renderCardPurchasesPage()
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Agregar compra" })
+    )
+
+    expect(screen.queryByLabelText("Año de la cuota")).toBeNull()
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Mes de la cuota" }))
+
+    const currentPeriod = getCurrentPeriod()
+    const offeredMonths = Array.from(
+      { length: MONTHS_PER_YEAR - currentPeriod.month + 1 },
+      (_value, index) =>
+        monthLabel({
+          year: currentPeriod.year,
+          month: currentPeriod.month + index,
+        })
+    )
+
+    expect(
+      screen.getAllByRole("option").map((option) => option.textContent)
+    ).toEqual(offeredMonths)
   })
 
   it("crea una compra con los datos que el usuario eligió", async () => {
@@ -285,7 +374,12 @@ describe("CardPurchasesPage", () => {
     fireEvent.change(screen.getByLabelText("Total de cuotas"), {
       target: { value: "6" },
     })
-    selectOption("Mes de la cuota", "Septiembre")
+    const lastMonthOfCurrentYear: Period = {
+      year: getCurrentPeriod().year,
+      month: MONTHS_PER_YEAR,
+    }
+
+    selectOption("Mes de la cuota", monthLabel(lastMonthOfCurrentYear))
 
     fireEvent.click(screen.getByRole("button", { name: "Guardar compra" }))
 
@@ -297,8 +391,8 @@ describe("CardPurchasesPage", () => {
         p_quota_amount: 45_000,
         p_starting_installment: 3,
         p_total_installments: 6,
-        p_year: 2026,
-        p_month: 9,
+        p_year: lastMonthOfCurrentYear.year,
+        p_month: lastMonthOfCurrentYear.month,
       })
     })
   })
@@ -392,8 +486,8 @@ describe("CardPurchasesPage", () => {
         p_currency: "ars",
         p_quota_amount: 50_000,
         p_from_installment: 4,
-        p_from_year: 2026,
-        p_from_month: 3,
+        p_from_year: VIEWED_PERIOD.year,
+        p_from_month: VIEWED_PERIOD.month,
         p_total_installments: 8,
       })
     })

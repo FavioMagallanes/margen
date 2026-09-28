@@ -27,6 +27,8 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useAuth } from "@/features/auth/use-auth"
+import { useMonthlyBudgetQuery } from "@/features/monthly-budget/api/monthly-budget-queries"
+import { toArsEquivalent } from "@/features/monthly-budget/model/expense-total"
 import { parseAmountInputValue } from "@/shared/lib/amount-input"
 import { formatArs } from "@/shared/lib/money"
 import {
@@ -117,17 +119,24 @@ const toEditableCardPurchase = (
   }
 }
 
-const buildCreateDefaults = (period: Period): CardPurchaseFormValues => ({
-  concept: "",
-  card: "BBVA",
-  currency: "ars",
-  quotaAmount: "",
-  isSinglePayment: false,
-  startingInstallment: "1",
-  totalInstallments: "1",
-  year: String(period.year),
-  month: String(period.month),
-})
+const buildCreateDefaults = (period: Period): CardPurchaseFormValues => {
+  const currentPeriod = getCurrentPeriod()
+  // RF-02: the form only offers the current real month onwards, so the viewed
+  // month is only a valid default while it belongs to that range.
+  const isViewedMonthAvailable =
+    period.year === currentPeriod.year && period.month >= currentPeriod.month
+
+  return {
+    concept: "",
+    card: "BBVA",
+    currency: "ars",
+    quotaAmount: "",
+    isSinglePayment: false,
+    startingInstallment: "1",
+    totalInstallments: "1",
+    month: String(isViewedMonthAvailable ? period.month : currentPeriod.month),
+  }
+}
 
 const buildEditDefaults = (
   purchase: EditableCardPurchase,
@@ -143,7 +152,6 @@ const buildEditDefaults = (
   isSinglePayment: false,
   startingInstallment: String(purchase.installmentNumber),
   totalInstallments: String(purchase.totalInstallments),
-  year: String(period.year),
   month: String(period.month),
 })
 
@@ -153,7 +161,6 @@ const toCreateInput = (
   const quotaAmount = parseAmountInputValue(values.quotaAmount)
   const startingInstallment = parsePositiveInteger(values.startingInstallment)
   const totalInstallments = parsePositiveInteger(values.totalInstallments)
-  const year = parsePositiveInteger(values.year)
   const month = parsePositiveInteger(values.month)
 
   // The resolver already rejected these cases; this only narrows the types.
@@ -161,7 +168,6 @@ const toCreateInput = (
     quotaAmount === null ||
     startingInstallment === null ||
     totalInstallments === null ||
-    year === null ||
     month === null
   ) {
     return null
@@ -174,7 +180,8 @@ const toCreateInput = (
     quotaAmount: quotaAmount.toNumber(),
     startingInstallment,
     totalInstallments,
-    period: { year, month },
+    // RF-02: the year is never chosen in the form, it is always the current one.
+    period: { year: getCurrentPeriod().year, month },
   }
 }
 
@@ -263,6 +270,10 @@ export const CardPurchasesPage = () => {
   const userId = session?.user.id ?? null
 
   const purchasesQuery = useCardPurchasesQuery(userId, period)
+  // RF-06: the ARS equivalent needs the rate stored for the viewed month; the
+  // monthly budget query is already the canonical way to read it.
+  const budgetQuery = useMonthlyBudgetQuery(userId, period)
+  const arsPerUsd = budgetQuery.data?.exchangeRateValue ?? null
   const createPurchase = useCreateCardPurchaseMutation(userId)
   const updatePurchase = useUpdateCardPurchaseMutation(userId)
   const deletePurchase = useDeleteCardPurchaseMutation(userId)
@@ -368,6 +379,7 @@ export const CardPurchasesPage = () => {
           <CardContent>
             <CardPurchaseForm
               mode="edit"
+              editedPeriod={period}
               defaultValues={buildEditDefaults(editor.purchase, period)}
               isSaving={updatePurchase.isLoading}
               errorMessage={
@@ -421,6 +433,12 @@ export const CardPurchasesPage = () => {
                     scope="col"
                     className="px-4 text-right text-muted-foreground"
                   >
+                    Equivalente en ARS
+                  </TableHead>
+                  <TableHead
+                    scope="col"
+                    className="px-4 text-right text-muted-foreground"
+                  >
                     Acciones
                   </TableHead>
                 </TableRow>
@@ -428,6 +446,10 @@ export const CardPurchasesPage = () => {
               <TableBody>
                 {group.rows.map((row) => {
                   const editable = toEditableCardPurchase(row)
+                  const arsEquivalent = toArsEquivalent(
+                    { amount: row.amount, currency: row.currency },
+                    arsPerUsd
+                  )
 
                   return (
                     <TableRow key={row.occurrenceId}>
@@ -449,6 +471,11 @@ export const CardPurchasesPage = () => {
                       </TableCell>
                       <TableCell className="px-4 text-right font-mono">
                         {formatOriginalAmount(row)}
+                      </TableCell>
+                      <TableCell className="px-4 text-right font-mono">
+                        {arsEquivalent === null
+                          ? MISSING_AMOUNT_LABEL
+                          : formatArs(arsEquivalent)}
                       </TableCell>
                       <TableCell className="px-4">
                         <span className="flex items-center justify-end gap-2">
