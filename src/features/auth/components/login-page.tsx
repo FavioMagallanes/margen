@@ -38,55 +38,71 @@ export const LoginPage = () => {
   })
 
   return (
-    <main className="flex min-h-svh items-center justify-center bg-background px-4 text-foreground">
+    <main className="relative flex min-h-svh items-center justify-center overflow-hidden bg-background px-4 py-10 text-foreground">
+      {/* Subtle accent wash built from theme tokens; purely decorative. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_50%_0%,color-mix(in_oklch,var(--primary),transparent_88%),transparent_70%)]"
+      />
+
       <form
         noValidate
         onSubmit={onSubmit}
-        className="flex w-full max-w-sm flex-col gap-4 rounded-lg border border-border bg-card p-6"
+        className="relative flex w-full max-w-sm flex-col gap-6 rounded-xl border border-border bg-card p-8"
       >
-        <div className="flex flex-col gap-1">
-          <h1 className="text-base font-semibold tracking-tight">Margen</h1>
-          <p className="text-xs text-muted-foreground">
-            Ingresá con tu email y contraseña para ver tu presupuesto.
-          </p>
+        <div className="flex flex-col items-center gap-3 text-center">
+          <img
+            src="/margen-web.svg"
+            alt=""
+            aria-hidden="true"
+            className="size-12 rounded-[0.6rem]"
+          />
+          <div className="flex flex-col gap-1.5">
+            <h1 className="text-xl font-semibold tracking-tight">Margen</h1>
+            <p className="text-xs leading-relaxed text-balance text-muted-foreground">
+              Ingresá con tu email y contraseña para ver tu presupuesto.
+            </p>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="login-email" className="text-xs font-medium">
-            Email
-          </label>
-          <input
-            id="login-email"
-            type="email"
-            autoComplete="email"
-            className={fieldClassName}
-            aria-invalid={errors.email !== undefined}
-            {...register("email")}
-          />
-          {errors.email ? (
-            <p role="alert" className="text-xs text-destructive">
-              {errors.email.message}
-            </p>
-          ) : null}
-        </div>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="login-email" className="text-xs font-medium">
+              Email
+            </label>
+            <input
+              id="login-email"
+              type="email"
+              autoComplete="email"
+              className={fieldClassName}
+              aria-invalid={errors.email !== undefined}
+              {...register("email")}
+            />
+            {errors.email ? (
+              <p role="alert" className="text-xs text-destructive">
+                {errors.email.message}
+              </p>
+            ) : null}
+          </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="login-password" className="text-xs font-medium">
-            Contraseña
-          </label>
-          <input
-            id="login-password"
-            type="password"
-            autoComplete="current-password"
-            className={fieldClassName}
-            aria-invalid={errors.password !== undefined}
-            {...register("password")}
-          />
-          {errors.password ? (
-            <p role="alert" className="text-xs text-destructive">
-              {errors.password.message}
-            </p>
-          ) : null}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="login-password" className="text-xs font-medium">
+              Contraseña
+            </label>
+            <input
+              id="login-password"
+              type="password"
+              autoComplete="current-password"
+              className={fieldClassName}
+              aria-invalid={errors.password !== undefined}
+              {...register("password")}
+            />
+            {errors.password ? (
+              <p role="alert" className="text-xs text-destructive">
+                {errors.password.message}
+              </p>
+            ) : null}
+          </div>
         </div>
 
         {hasFailed ? (
@@ -95,7 +111,12 @@ export const LoginPage = () => {
           </p>
         ) : null}
 
-        <Button type="submit" size="lg" disabled={isSubmitting}>
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          disabled={isSubmitting}
+        >
           {isSubmitting ? "Ingresando…" : "Ingresar"}
         </Button>
       </form>
