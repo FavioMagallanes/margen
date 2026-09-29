@@ -16,6 +16,8 @@ type StoredOccurrence = {
   installment_number: number | null
   is_skipped: boolean
   spending_plans: {
+    id: string
+    kind: string
     concept: string
     group_label: string
     currency: string
@@ -77,6 +79,8 @@ vi.mock("@/shared/lib/supabase/client", () => ({
 const VIEWED_PERIOD: Period = { year: 2026, month: 3 }
 
 const internetPlan = {
+  id: "plan-internet",
+  kind: "recurring",
   concept: "Internet",
   group_label: "Otros gastos",
   currency: "ars",
@@ -97,6 +101,8 @@ const skippedMonth: StoredOccurrence = {
   installment_number: null,
   is_skipped: true,
   spending_plans: {
+    id: "plan-luz",
+    kind: "recurring",
     concept: "Luz",
     group_label: "Otros gastos",
     currency: "ars",
@@ -124,6 +130,8 @@ describe("un recurrente omitido dentro del resumen del mes", () => {
 
     expect(lines).toHaveLength(1)
     expect(lines[0]?.concept).toBe("Internet")
+    expect(lines[0]?.kind).toBe("recurring")
+    expect(lines[0]?.planId).toBe("plan-internet")
 
     render(
       <MonthExpenses lines={lines} arsPerUsd={null} periodLabel="Marzo 2026" />

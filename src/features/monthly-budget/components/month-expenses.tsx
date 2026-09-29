@@ -16,9 +16,10 @@ import {
   type ExpenseLine,
   toArsEquivalent,
 } from "../model/expense-total"
+import type { MonthExpenseLine } from "../model/month-expense-line"
 
 type MonthExpensesProps = {
-  lines: readonly ExpenseLine[]
+  lines: readonly MonthExpenseLine[]
   arsPerUsd: number | null
   periodLabel: string
 }

@@ -3,7 +3,10 @@ import { useQuery } from "@tanstack/react-query"
 import type { Period } from "@/shared/lib/period"
 import { supabase } from "@/shared/lib/supabase/client"
 
-import type { ExpenseLine } from "../model/expense-total"
+import type {
+  MonthExpenseKind,
+  MonthExpenseLine,
+} from "../model/month-expense-line"
 
 /** RF-07: how the applied rate got there, never which currency it converts. */
 export type ExchangeRateSource = "api" | "manual"
@@ -65,6 +68,14 @@ export const fetchMonthlyBudget = async ({
 
 const OTHER_EXPENSES_GROUP = "Otros gastos"
 
+// The column is a controlled enum in the database, but the generated type is a
+// plain string, so an unexpected value is narrowed to the kind that owns no
+// plan instead of being trusted.
+const toMonthExpenseKind = (kind: string | undefined): MonthExpenseKind =>
+  kind === "card_purchase" || kind === "loan" || kind === "recurring"
+    ? kind
+    : "other"
+
 const formatInstallment = (
   installmentNumber: number | null,
   totalInstallments: number | null
@@ -81,11 +92,11 @@ const formatInstallment = (
 export const fetchMonthExpenseLines = async ({
   year,
   month,
-}: Period): Promise<ExpenseLine[]> => {
+}: Period): Promise<MonthExpenseLine[]> => {
   const occurrences = await supabase
     .from("expense_occurrences")
     .select(
-      "id, amount, installment_number, spending_plans(concept, group_label, currency, total_installments)"
+      "id, amount, installment_number, spending_plans(id, concept, group_label, currency, total_installments, kind)"
     )
     .eq("year", year)
     .eq("month", month)
@@ -107,7 +118,7 @@ export const fetchMonthExpenseLines = async ({
     throw new Error(others.error.message)
   }
 
-  const planLines: ExpenseLine[] = (occurrences.data ?? []).map((row) => ({
+  const planLines: MonthExpenseLine[] = (occurrences.data ?? []).map((row) => ({
     id: row.id,
     concept: row.spending_plans?.concept ?? "",
     group: row.spending_plans?.group_label ?? "",
@@ -117,15 +128,22 @@ export const fetchMonthExpenseLines = async ({
     ),
     amount: row.amount,
     currency: row.spending_plans?.currency ?? null,
+    kind: toMonthExpenseKind(row.spending_plans?.kind),
+    // The foreign key makes a missing plan unreachable in practice; an empty
+    // id is an obviously invalid target instead of one pointing elsewhere.
+    planId: row.spending_plans?.id ?? "",
   }))
 
-  const otherLines: ExpenseLine[] = (others.data ?? []).map((row) => ({
+  const otherLines: MonthExpenseLine[] = (others.data ?? []).map((row) => ({
     id: row.id,
     concept: row.concept,
     group: OTHER_EXPENSES_GROUP,
     installment: null,
     amount: row.amount,
     currency: row.currency,
+    // An other expense has no plan: it owns itself.
+    kind: "other" as const,
+    planId: row.id,
   }))
 
   return [...planLines, ...otherLines]

@@ -257,6 +257,8 @@ describe("MonthlyBudgetPage", () => {
         amount: 45_000,
         installment_number: 3,
         spending_plans: {
+          id: "plan-notebook",
+          kind: "card_purchase",
           concept: "Notebook",
           group_label: "BBVA",
           currency: "ars",
@@ -286,6 +288,8 @@ describe("MonthlyBudgetPage", () => {
         amount: 45_000,
         installment_number: 3,
         spending_plans: {
+          id: "plan-notebook",
+          kind: "card_purchase",
           concept: "Notebook",
           group_label: "BBVA",
           currency: "ars",
@@ -319,6 +323,8 @@ describe("MonthlyBudgetPage", () => {
         amount: 120_000,
         installment_number: 4,
         spending_plans: {
+          id: "plan-prestamo-personal",
+          kind: "loan",
           concept: "Préstamo personal",
           group_label: "BBVA",
           currency: "ars",
@@ -331,6 +337,8 @@ describe("MonthlyBudgetPage", () => {
         amount: null,
         installment_number: 3,
         spending_plans: {
+          id: "plan-prestamo-auto",
+          kind: "loan",
           concept: "Préstamo del auto",
           group_label: "Mercado Pago",
           currency: "ars",
