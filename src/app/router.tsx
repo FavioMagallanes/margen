@@ -10,6 +10,7 @@ import { MonthlyBudgetPage } from "@/features/monthly-budget/monthly-budget-page
 import { OtherExpensesPage } from "@/features/other-expenses/components/other-expenses-page"
 import { RecurringExpensesPage } from "@/features/recurring-expenses/components/recurring-expenses-page"
 import { ReportsPage } from "@/features/reports/components/reports-page"
+import { UpcomingExpensesPage } from "@/features/upcoming-expenses/components/upcoming-expenses-page"
 import { getCurrentPeriod } from "@/shared/lib/period"
 
 // Resolved per navigation so a session open across midnight still lands on today.
@@ -45,6 +46,7 @@ export const router = createBrowserRouter([
             element: <RecurringExpensesPage />,
           },
           { path: "other", element: <OtherExpensesPage /> },
+          { path: "upcoming", element: <UpcomingExpensesPage /> },
         ],
       },
       {

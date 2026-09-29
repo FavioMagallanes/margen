@@ -11,6 +11,7 @@ const NAV_LABELS = [
   "Préstamos",
   "Recurrentes",
   "Otros gastos",
+  "Próximos meses",
   "Reportes",
 ]
 
@@ -18,7 +19,7 @@ describe("Sidebar", () => {
   // Vitest runs without globals, so Testing Library's auto cleanup is not registered.
   afterEach(cleanup)
 
-  it("renderiza las 6 secciones de navegación", () => {
+  it("renderiza las 7 secciones de navegación", () => {
     render(
       <MemoryRouter initialEntries={["/months/2026/9"]}>
         <Sidebar period={{ year: 2026, month: 9 }} />
@@ -48,6 +49,10 @@ describe("Sidebar", () => {
     expect(screen.getByRole("link", { name: "Reportes" })).toHaveProperty(
       "pathname",
       "/reports"
+    )
+    expect(screen.getByRole("link", { name: "Próximos meses" })).toHaveProperty(
+      "pathname",
+      "/months/2026/9/upcoming"
     )
   })
 })
