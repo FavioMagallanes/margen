@@ -4,26 +4,26 @@ import {
   fetchMonthlyBudget,
   type MonthlyBudgetRow,
 } from "@/features/monthly-budget/api/monthly-budget-queries"
-import { fetchRecurringPlans } from "@/features/recurring-expenses/api/recurring-expense-queries"
 import type { Period } from "@/shared/lib/period"
 import { supabase } from "@/shared/lib/supabase/client"
 
 import {
   type FinitePlan,
+  type KnownOccurrence,
   type PlanEnding,
   toUpcomingPlanEndings,
 } from "../model/plan-ending"
-import {
-  toProjectedRecurringLines,
-  type UpcomingExpenseKind,
-  type UpcomingExpenseLine,
-} from "../model/upcoming-line"
+import type { UpcomingExpenseLine } from "../model/upcoming-line"
 
 /** Everything the viewed month commits, plus the budget it is measured against. */
 export type UpcomingMonth = {
   lines: UpcomingExpenseLine[]
   budget: MonthlyBudgetRow | null
 }
+
+// RF-04: this view only looks at credit card installments, so every query is
+// narrowed to that plan kind.
+const CARD_PURCHASE_KIND = "card_purchase"
 
 // Query keys carry the owner and the month so two sessions or two months never
 // share a cache entry.
@@ -33,13 +33,6 @@ export const upcomingKeys = {
   planEndings: (userId: string, { year, month }: Period) =>
     ["upcoming-expenses", userId, "plan-endings", year, month] as const,
 }
-
-const toUpcomingKind = (
-  kind: string | undefined
-): UpcomingExpenseKind | null =>
-  kind === "card_purchase" || kind === "loan" || kind === "recurring"
-    ? kind
-    : null
 
 const formatInstallment = (
   installmentNumber: number | null,
@@ -59,87 +52,89 @@ const fetchGeneratedLines = async ({
   month,
 }: Period): Promise<UpcomingExpenseLine[]> => {
   // RLS scopes the read to the authenticated user, so no user_id filter here.
+  // The "!inner" join is what makes the kind filter drop the occurrences of
+  // other plan kinds instead of only emptying the embedded plan.
   const { data, error } = await supabase
     .from("expense_occurrences")
     .select(
-      "id, amount, amount_is_estimated, installment_number, spending_plans(concept, group_label, currency, total_installments, kind)"
+      "id, amount, amount_is_estimated, installment_number, spending_plans!inner(concept, group_label, currency, total_installments)"
     )
     .eq("year", year)
     .eq("month", month)
-    // RF-05: a skipped recurring month is an explicit absence, not a line
-    // waiting for its amount, so nothing is committed by it.
+    .eq("spending_plans.kind", CARD_PURCHASE_KIND)
+    // RF-05: a skipped month is an explicit absence, not a line waiting for
+    // its amount, so nothing is committed by it.
     .eq("is_skipped", false)
 
   if (error) {
     throw new Error(error.message)
   }
 
-  return (data ?? []).flatMap((row) => {
-    const kind = toUpcomingKind(row.spending_plans?.kind)
-
-    if (kind === null) {
-      return []
-    }
-
-    return {
-      id: row.id,
-      concept: row.spending_plans?.concept ?? "",
-      group: row.spending_plans?.group_label ?? "",
-      installment: formatInstallment(
-        row.installment_number,
-        row.spending_plans?.total_installments ?? null
-      ),
-      amount: row.amount,
-      currency: row.spending_plans?.currency ?? null,
-      kind,
-      origin: "generated" as const,
-      amountIsEstimated: row.amount_is_estimated,
-    }
-  })
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    concept: row.spending_plans.concept,
+    group: row.spending_plans.group_label,
+    installment: formatInstallment(
+      row.installment_number,
+      row.spending_plans.total_installments
+    ),
+    amount: row.amount,
+    currency: row.spending_plans.currency,
+    amountIsEstimated: row.amount_is_estimated,
+  }))
 }
 
 /**
- * The month as it is already committed: the rows that exist plus the recurring
- * months that the rules guarantee but nobody generated yet. Reading a month
- * writes nothing, so the projected part never becomes a row here (RF-05).
+ * The month as it is already committed by the card installments that exist.
+ * Reading a month writes nothing, so nothing is generated here (RF-05).
  */
 export const fetchUpcomingExpenseLines = async (
   period: Period
 ): Promise<UpcomingMonth> => {
-  const [generatedLines, recurringPlans, budget] = await Promise.all([
+  const [lines, budget] = await Promise.all([
     fetchGeneratedLines(period),
-    fetchRecurringPlans(),
     fetchMonthlyBudget(period),
   ])
 
-  return {
-    lines: [
-      ...generatedLines,
-      ...toProjectedRecurringLines(recurringPlans, period),
-    ],
-    budget,
-  }
+  return { lines, budget }
 }
 
-const earliestPeriod = (
-  occurrences: readonly { year: number; month: number }[]
-): Period | null =>
-  occurrences.reduce<Period | null>((earliest, occurrence) => {
+/**
+ * The earliest generated month of a plan together with the installment it
+ * represents. A row without an installment number cannot anchor the plan, so
+ * it is ignored; a plan with no usable row has no known occurrence at all.
+ */
+const earliestKnownOccurrence = (
+  occurrences: readonly {
+    year: number
+    month: number
+    installment_number: number | null
+  }[]
+): KnownOccurrence | null =>
+  occurrences.reduce<KnownOccurrence | null>((earliest, occurrence) => {
+    if (occurrence.installment_number === null) {
+      return earliest
+    }
+
+    const period = { year: occurrence.year, month: occurrence.month }
+
     if (
       earliest === null ||
-      occurrence.year < earliest.year ||
-      (occurrence.year === earliest.year && occurrence.month < earliest.month)
+      period.year < earliest.period.year ||
+      (period.year === earliest.period.year &&
+        period.month < earliest.period.month)
     ) {
-      return { year: occurrence.year, month: occurrence.month }
+      return { period, installmentNumber: occurrence.installment_number }
     }
 
     return earliest
   }, null)
 
 /**
- * Every plan with a fixed number of installments still running on the viewed
- * month. The ending is month arithmetic over the first generated month, so a
- * plan whose later months are not generated yet still reports the right end.
+ * Every card plan of more than one installment still running on the viewed
+ * month. The ending is month arithmetic over a known installment, so a plan
+ * whose later months are not generated yet still reports the right end, and a
+ * plan loaded from a later installment is not pushed into the future.
  */
 export const fetchUpcomingPlanEndings = async (
   period: Period
@@ -147,18 +142,19 @@ export const fetchUpcomingPlanEndings = async (
   const { data, error } = await supabase
     .from("spending_plans")
     .select(
-      "id, concept, group_label, kind, total_installments, stopped_from_year, stopped_from_month, expense_occurrences(year, month)"
+      "id, concept, group_label, total_installments, stopped_from_year, stopped_from_month, expense_occurrences(year, month, installment_number)"
     )
-    .not("total_installments", "is", null)
+    .eq("kind", CARD_PURCHASE_KIND)
+    // A single payment is not a plan of pending installments, so it never
+    // belongs to this table.
+    .gt("total_installments", 1)
 
   if (error) {
     throw new Error(error.message)
   }
 
   const plans = (data ?? []).flatMap<FinitePlan>((plan) => {
-    const kind = toUpcomingKind(plan.kind)
-
-    if (kind === null || plan.total_installments === null) {
+    if (plan.total_installments === null) {
       return []
     }
 
@@ -166,9 +162,8 @@ export const fetchUpcomingPlanEndings = async (
       planId: plan.id,
       concept: plan.concept,
       groupLabel: plan.group_label,
-      kind,
       totalInstallments: plan.total_installments,
-      firstPeriod: earliestPeriod(plan.expense_occurrences ?? []),
+      knownOccurrence: earliestKnownOccurrence(plan.expense_occurrences ?? []),
       stoppedFrom:
         plan.stopped_from_year === null || plan.stopped_from_month === null
           ? null

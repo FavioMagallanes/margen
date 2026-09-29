@@ -24,14 +24,10 @@ import { UpcomingPlanEndings } from "./upcoming-plan-endings"
 const LOAD_ERROR_MESSAGE =
   "No pudimos cargar lo comprometido de este mes. Intentá de nuevo en un momento."
 
-const EMPTY_MESSAGE =
-  "Este mes no tiene nada comprometido: ni cuotas, ni préstamos, ni recurrentes."
+const EMPTY_MESSAGE = "Este mes no tiene ninguna cuota de tarjeta comprometida."
 
 const INCOMPLETE_TOTAL_MESSAGE =
   "El total está incompleto: falta algún importe o la cotización del mes, así que esto no es definitivo."
-
-const PROJECTED_MESSAGE =
-  "Las líneas «Proyectado» todavía no existen como gasto: se derivan de los recurrentes activos y recién se cargan cuando las generás desde Recurrentes."
 
 const USD_REFERENCE_MESSAGE =
   "Las líneas en USD se convierten con la cotización guardada del mes como referencia presupuestaria, no como el importe que va a cobrar el banco."
@@ -78,7 +74,6 @@ export const UpcomingExpensesPage = () => {
   const arsPerUsd = budget?.exchangeRateValue ?? null
   const { totalKnownArs, isComplete } = computeExpenseTotal(lines, arsPerUsd)
 
-  const hasProjectedLines = lines.some((line) => line.origin === "projected")
   const hasUsdLines = lines.some((line) => line.currency === "usd")
 
   return (
@@ -88,8 +83,8 @@ export const UpcomingExpensesPage = () => {
           Próximos meses
         </h1>
         <p className="text-sm text-muted-foreground">
-          Lo que ya está comprometido en {periodLabel} por tarjetas, préstamos y
-          recurrentes.
+          Lo que ya está comprometido en {periodLabel} por las cuotas de
+          tarjeta.
         </p>
       </header>
 
@@ -135,12 +130,6 @@ export const UpcomingExpensesPage = () => {
         </Card>
       ) : (
         <section className="flex flex-col gap-3">
-          {hasProjectedLines ? (
-            <Alert>
-              <AlertDescription>{PROJECTED_MESSAGE}</AlertDescription>
-            </Alert>
-          ) : null}
-
           {hasUsdLines ? (
             <Alert>
               <AlertDescription>{USD_REFERENCE_MESSAGE}</AlertDescription>

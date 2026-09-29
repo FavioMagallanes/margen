@@ -391,13 +391,25 @@ La descarga no requiere guardar copias del PDF dentro de la app. El PDF es un re
 
 ## 15. RF-12 — Consulta de próximos meses
 
-El usuario puede ver cuánto tiene ya comprometido en los próximos meses por tarjetas, préstamos y recurrentes, y cuándo terminan los planes de cuotas.
+El usuario puede ver cuánto tiene ya comprometido en los próximos meses en compras con tarjeta, y cuándo terminan los planes de cuotas de más de un pago.
 
 Se distinguen gastos conocidos, importes estimados, conversiones de referencia e información faltante. No se supone que el próximo sueldo será igual al actual.
 
 La ausencia de sueldo no impide consultar gastos futuros. Tampoco obliga a cargar ese sueldo como cero.
 
-Esta vista no pronostica cotizaciones, ingresos ni intereses; organiza compromisos que ya fueron registrados o se derivan de reglas de repetición.
+Esta vista no pronostica cotizaciones, ingresos ni intereses; organiza compromisos que ya fueron registrados.
+
+**Cambio v1.3:** por pedido explícito del usuario se redujo el alcance
+de esta vista a compras con tarjeta únicamente — préstamos y gastos
+recurrentes ya no aparecen ni en el comprometido del mes ni en "planes
+que terminan" (siguen viéndose en sus propias secciones y en
+Reportes). Una compra con tarjeta de una sola cuota tampoco entra en
+"planes que terminan": esa lista es sólo para cuotas todavía
+pendientes, de más de un pago. Se corrigió además un cálculo erróneo
+del mes de fin: cuando la primera cuota cargada de una compra no es la
+número 1 (por ejemplo, se empezó a registrar desde la última cuota),
+el fin ahora se calcula a partir del número de cuota real de esa
+ocurrencia, no asumiendo siempre que la primera cargada es la cuota 1.
 
 ## 16. RF-13 — Acceso privado y uso en dos dispositivos
 

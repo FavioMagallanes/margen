@@ -1,4 +1,3 @@
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Table,
@@ -12,7 +11,6 @@ import {
 import { formatPeriodLabel } from "@/shared/lib/period"
 
 import type { PlanEnding } from "../model/plan-ending"
-import { UPCOMING_KIND_LABELS } from "../model/upcoming-line"
 
 type UpcomingPlanEndingsProps = {
   endings: readonly PlanEnding[]
@@ -35,7 +33,7 @@ export const UpcomingPlanEndings = ({ endings }: UpcomingPlanEndingsProps) => (
       </Card>
     ) : (
       <Card className="py-0">
-        <Table className="min-w-[560px] text-sm">
+        <Table className="min-w-[480px] text-sm">
           <TableCaption className="sr-only">
             Planes de cuotas y su mes de fin
           </TableCaption>
@@ -48,9 +46,6 @@ export const UpcomingPlanEndings = ({ endings }: UpcomingPlanEndingsProps) => (
                 Agrupación
               </TableHead>
               <TableHead scope="col" className="px-4 text-muted-foreground">
-                Tipo
-              </TableHead>
-              <TableHead scope="col" className="px-4 text-muted-foreground">
                 Termina en
               </TableHead>
             </TableRow>
@@ -61,11 +56,6 @@ export const UpcomingPlanEndings = ({ endings }: UpcomingPlanEndingsProps) => (
                 <TableCell className="px-4">{ending.concept}</TableCell>
                 <TableCell className="px-4 text-muted-foreground">
                   {ending.groupLabel}
-                </TableCell>
-                <TableCell className="px-4">
-                  <Badge variant="secondary">
-                    {UPCOMING_KIND_LABELS[ending.kind]}
-                  </Badge>
                 </TableCell>
                 <TableCell className="px-4">
                   {formatPeriodLabel(ending.endsAt)}

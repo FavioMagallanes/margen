@@ -8,22 +8,22 @@ import { AuthProvider } from "@/features/auth/auth-provider"
 import { createFakeSession } from "@/features/auth/tests/fixtures/session"
 import { UpcomingExpensesPage } from "@/features/upcoming-expenses/components/upcoming-expenses-page"
 
+type PlanOccurrenceRow = {
+  year: number
+  month: number
+  installment_number: number | null
+}
+
 type PlanRow = {
   id: string
   concept: string
   group_label: string
   currency: string
   kind: string
-  default_amount: number | null
   total_installments: number | null
   stopped_from_year: number | null
   stopped_from_month: number | null
-  expense_occurrences: {
-    year: number
-    month: number
-    amount: number | null
-    is_skipped: boolean
-  }[]
+  expense_occurrences: PlanOccurrenceRow[]
 }
 
 const { authMock, fromMock, scenario } = vi.hoisted(() => {
@@ -36,24 +36,21 @@ const { authMock, fromMock, scenario } = vi.hoisted(() => {
     failingTable: null as string | null,
   }
 
-  const matchesFilters = (
+  const readColumn = (
     row: Record<string, unknown>,
-    filters: Record<string, unknown>
-  ): boolean =>
-    Object.entries(filters).every(([column, value]) => {
-      // The kind filter of the recurring query lives on the embedded plan.
-      if (column === "spending_plans.kind") {
-        return (
-          (row.spending_plans as { kind?: string } | undefined)?.kind === value
-        )
-      }
+    column: string
+  ): unknown => {
+    // The kind filter of the occurrences query lives on the embedded plan.
+    if (column === "spending_plans.kind") {
+      return (row.spending_plans as { kind?: string } | undefined)?.kind
+    }
 
-      return row[column] === value
-    })
+    return row[column]
+  }
 
   const createBuilder = (table: string) => {
-    const filters: Record<string, unknown> = {}
-    let onlyFinitePlans = false
+    const equals: Record<string, unknown> = {}
+    const greaterThan: Record<string, number> = {}
 
     const result = (): QueryResult => {
       if (scenario.failingTable === table) {
@@ -69,13 +66,17 @@ const { authMock, fromMock, scenario } = vi.hoisted(() => {
 
       const visible = rows
         .filter((row) =>
-          matchesFilters(row as Record<string, unknown>, filters)
+          Object.entries(equals).every(
+            ([column, value]) =>
+              readColumn(row as Record<string, unknown>, column) === value
+          )
         )
-        .filter(
-          (row) =>
-            !onlyFinitePlans ||
-            (row as { total_installments: number | null })
-              .total_installments !== null
+        .filter((row) =>
+          Object.entries(greaterThan).every(([column, value]) => {
+            const actual = readColumn(row as Record<string, unknown>, column)
+
+            return typeof actual === "number" && actual > value
+          })
         )
 
       return { data: visible, error: null }
@@ -84,12 +85,12 @@ const { authMock, fromMock, scenario } = vi.hoisted(() => {
     const builder = {
       select: () => builder,
       eq: (column: string, value: unknown) => {
-        filters[column] = value
+        equals[column] = value
 
         return builder
       },
-      not: () => {
-        onlyFinitePlans = true
+      gt: (column: string, value: number) => {
+        greaterThan[column] = value
 
         return builder
       },
@@ -123,16 +124,42 @@ vi.mock("@/shared/lib/supabase/client", () => ({
 
 const createPlan = (plan: Partial<PlanRow>): PlanRow => ({
   id: "plan-1",
-  concept: "Luz",
-  group_label: "Servicios",
+  concept: "Notebook",
+  group_label: "Visa",
   currency: "ars",
-  kind: "recurring",
-  default_amount: null,
-  total_installments: null,
+  kind: "card_purchase",
+  total_installments: 6,
   stopped_from_year: null,
   stopped_from_month: null,
   expense_occurrences: [],
   ...plan,
+})
+
+const createOccurrence = (occurrence: {
+  id: string
+  amount?: number | null
+  amountIsEstimated?: boolean
+  installmentNumber?: number | null
+  concept: string
+  groupLabel?: string
+  currency?: string
+  totalInstallments?: number | null
+  kind?: string
+}) => ({
+  id: occurrence.id,
+  amount: occurrence.amount ?? null,
+  amount_is_estimated: occurrence.amountIsEstimated ?? false,
+  installment_number: occurrence.installmentNumber ?? null,
+  year: 2026,
+  month: 5,
+  is_skipped: false,
+  spending_plans: {
+    concept: occurrence.concept,
+    group_label: occurrence.groupLabel ?? "Visa",
+    currency: occurrence.currency ?? "ars",
+    total_installments: occurrence.totalInstallments ?? null,
+    kind: occurrence.kind ?? "card_purchase",
+  },
 })
 
 const renderUpcomingPage = () => {
@@ -172,51 +199,34 @@ describe("UpcomingExpensesPage", () => {
       error: null,
     })
     authMock.onAuthStateChange.mockReturnValue({
-      data: { subscription: { unsubscribe: vi.fn() } },
+      data: { subscription: { subscribe: vi.fn(), unsubscribe: vi.fn() } },
     })
   })
 
-  it("suma las líneas ya generadas del mes y las muestra con su tipo", async () => {
+  it("suma las cuotas de tarjeta del mes y las muestra con su número de cuota", async () => {
     scenario.budget = { salary_ars: 1_000_000, exchange_rate_value: 1600 }
     scenario.occurrences = [
-      {
+      createOccurrence({
         id: "occurrence-1",
+        concept: "Notebook",
         amount: 45_000,
-        amount_is_estimated: false,
-        installment_number: 3,
-        year: 2026,
-        month: 5,
-        is_skipped: false,
-        spending_plans: {
-          concept: "Notebook",
-          group_label: "Visa",
-          currency: "ars",
-          total_installments: 6,
-          kind: "card_purchase",
-        },
-      },
-      {
+        installmentNumber: 3,
+        totalInstallments: 6,
+      }),
+      createOccurrence({
         id: "occurrence-2",
+        concept: "Curso",
+        groupLabel: "Amex",
+        currency: "usd",
         amount: 100,
-        amount_is_estimated: false,
-        installment_number: 2,
-        year: 2026,
-        month: 5,
-        is_skipped: false,
-        spending_plans: {
-          concept: "Curso",
-          group_label: "Amex",
-          currency: "usd",
-          total_installments: 3,
-          kind: "card_purchase",
-        },
-      },
+        installmentNumber: 2,
+        totalInstallments: 3,
+      }),
     ]
 
     renderUpcomingPage()
 
     const notebookRow = await screen.findByRole("row", { name: /Notebook/ })
-    expect(within(notebookRow).getByText("Tarjeta")).toBeDefined()
     expect(within(notebookRow).getByText("3/6")).toBeDefined()
 
     // 45.000 ARS + 100 USD a 1.600 = 205.000 ARS.
@@ -230,34 +240,54 @@ describe("UpcomingExpensesPage", () => {
     ).toBeDefined()
   })
 
-  it("proyecta el recurrente activo que todavía no generó el mes", async () => {
-    scenario.plans = [
-      createPlan({ id: "fixed", default_amount: 30_000 }),
-      createPlan({
-        id: "variable",
-        concept: "Gas",
-        expense_occurrences: [
-          { year: 2026, month: 4, amount: 12_500, is_skipped: false },
-        ],
+  it("deja fuera del mes los préstamos y los recurrentes", async () => {
+    scenario.occurrences = [
+      createOccurrence({
+        id: "tarjeta",
+        concept: "Notebook",
+        amount: 45_000,
+        installmentNumber: 1,
+        totalInstallments: 6,
       }),
-      createPlan({ id: "sin-historial", concept: "Agua" }),
+      createOccurrence({
+        id: "prestamo",
+        concept: "Préstamo auto",
+        kind: "loan",
+        amount: 80_000,
+        installmentNumber: 4,
+        totalInstallments: 24,
+      }),
+      createOccurrence({
+        id: "recurrente",
+        concept: "Internet",
+        kind: "recurring",
+        amount: 9_000,
+      }),
     ]
 
     renderUpcomingPage()
 
-    const fixedRow = await screen.findByRole("row", { name: /Luz/ })
-    expect(within(fixedRow).getByText("Proyectado")).toBeDefined()
-    expect(within(fixedRow).getByText("$ 30.000,00")).toBeDefined()
-    expect(within(fixedRow).queryByText("Estimado")).toBeNull()
+    const notebookRow = await screen.findByRole("row", { name: /Notebook/ })
+    expect(screen.queryByText("Préstamo auto")).toBeNull()
+    expect(screen.queryByText("Internet")).toBeNull()
+    expect(within(notebookRow).getByText("$ 45.000,00")).toBeDefined()
+  })
 
-    const variableRow = screen.getByRole("row", { name: /Gas/ })
-    expect(within(variableRow).getByText("Estimado")).toBeDefined()
-    expect(within(variableRow).getByText("$ 12.500,00")).toBeDefined()
+  it("avisa que el total está incompleto cuando falta un importe, sin leerlo como cero", async () => {
+    scenario.occurrences = [
+      createOccurrence({
+        id: "sin-importe",
+        concept: "Heladera",
+        amount: null,
+        installmentNumber: 1,
+        totalInstallments: 3,
+      }),
+    ]
 
-    const missingRow = screen.getByRole("row", { name: /Agua/ })
-    expect(within(missingRow).getByText("Sin dato")).toBeDefined()
+    renderUpcomingPage()
 
-    // Un importe faltante nunca se lee como cero: el total queda avisado.
+    const row = await screen.findByRole("row", { name: /Heladera/ })
+    expect(within(row).getByText("Sin dato")).toBeDefined()
     expect(
       screen.getByText(
         "El total está incompleto: falta algún importe o la cotización del mes, así que esto no es definitivo."
@@ -265,64 +295,16 @@ describe("UpcomingExpensesPage", () => {
     ).toBeDefined()
   })
 
-  it("no proyecta un recurrente detenido, agotado o ya generado para el mes", async () => {
-    scenario.occurrences = [
-      {
-        id: "occurrence-generado",
-        amount: 9_000,
-        amount_is_estimated: false,
-        installment_number: null,
-        year: 2026,
-        month: 5,
-        is_skipped: false,
-        spending_plans: {
-          concept: "Internet",
-          group_label: "Servicios",
-          currency: "ars",
-          total_installments: null,
-          kind: "recurring",
-        },
-      },
-    ]
-    scenario.plans = [
-      createPlan({
-        id: "detenido",
-        concept: "Gimnasio",
-        default_amount: 20_000,
-        stopped_from_year: 2026,
-        stopped_from_month: 4,
-      }),
-      createPlan({
-        id: "agotado",
-        concept: "Seguro",
-        default_amount: 15_000,
-        total_installments: 2,
-        expense_occurrences: [
-          { year: 2026, month: 3, amount: 15_000, is_skipped: false },
-          { year: 2026, month: 4, amount: 15_000, is_skipped: false },
-        ],
-      }),
-      createPlan({
-        id: "ya-generado",
-        concept: "Internet",
-        default_amount: 9_000,
-        expense_occurrences: [
-          { year: 2026, month: 5, amount: 9_000, is_skipped: false },
-        ],
-      }),
-    ]
-
-    renderUpcomingPage()
-
-    const internetRow = await screen.findByRole("row", { name: /Internet/ })
-    expect(screen.queryByText("Gimnasio")).toBeNull()
-    expect(screen.queryByText("Seguro")).toBeNull()
-    expect(screen.queryByText("Proyectado")).toBeNull()
-    expect(within(internetRow).getByText("$ 9.000,00")).toBeDefined()
-  })
-
   it("muestra lo comprometido aunque el mes no tenga sueldo cargado", async () => {
-    scenario.plans = [createPlan({ default_amount: 30_000 })]
+    scenario.occurrences = [
+      createOccurrence({
+        id: "occurrence-1",
+        concept: "Notebook",
+        amount: 30_000,
+        installmentNumber: 1,
+        totalInstallments: 6,
+      }),
+    ]
 
     renderUpcomingPage()
 
@@ -331,41 +313,29 @@ describe("UpcomingExpensesPage", () => {
         "Cargá el sueldo de Mayo de 2026 para ver el disponible."
       )
     ).toBeDefined()
-    const luzRow = screen.getByRole("row", { name: /Luz/ })
-    expect(within(luzRow).getByText("$ 30.000,00")).toBeDefined()
+    const notebookRow = screen.getByRole("row", { name: /Notebook/ })
+    expect(within(notebookRow).getByText("$ 30.000,00")).toBeDefined()
   })
 
-  it("lista los planes en curso ordenados por su mes de fin", async () => {
+  it("lista los planes de tarjeta en curso ordenados por su mes de fin", async () => {
     scenario.plans = [
       createPlan({
-        id: "prestamo",
-        concept: "Préstamo auto",
-        group_label: "Banco Nación",
-        kind: "loan",
+        id: "largo",
+        concept: "Heladera",
         total_installments: 24,
-        expense_occurrences: [
-          { year: 2026, month: 1, amount: 80_000, is_skipped: false },
-        ],
+        expense_occurrences: [{ year: 2026, month: 1, installment_number: 1 }],
       }),
       createPlan({
         id: "tarjeta",
         concept: "Notebook",
-        group_label: "Visa",
-        kind: "card_purchase",
         total_installments: 6,
-        expense_occurrences: [
-          { year: 2026, month: 3, amount: 45_000, is_skipped: false },
-        ],
+        expense_occurrences: [{ year: 2026, month: 3, installment_number: 1 }],
       }),
       createPlan({
         id: "terminado",
-        concept: "Heladera",
-        group_label: "Visa",
-        kind: "card_purchase",
+        concept: "Lavarropas",
         total_installments: 3,
-        expense_occurrences: [
-          { year: 2026, month: 1, amount: 20_000, is_skipped: false },
-        ],
+        expense_occurrences: [{ year: 2026, month: 1, installment_number: 1 }],
       }),
     ]
 
@@ -381,6 +351,86 @@ describe("UpcomingExpensesPage", () => {
       expect.stringContaining("Diciembre de 2027"),
     ])
     expect(rows[0]?.textContent).toContain("Notebook")
-    expect(within(endingsTable).queryByText("Heladera")).toBeNull()
+    expect(within(endingsTable).queryByText("Lavarropas")).toBeNull()
+  })
+
+  it("termina el plan en el mes de su última cuota aunque sea la única cargada", async () => {
+    scenario.plans = [
+      createPlan({
+        id: "cuota-final",
+        concept: "Notebook",
+        total_installments: 3,
+        expense_occurrences: [{ year: 2026, month: 5, installment_number: 3 }],
+      }),
+    ]
+
+    renderUpcomingPage()
+
+    const endingsTable = await screen.findByRole("table", {
+      name: "Planes de cuotas y su mes de fin",
+    })
+    const [row] = within(endingsTable).getAllByRole("row").slice(1)
+
+    expect(row?.textContent).toContain("Mayo de 2026")
+  })
+
+  it("no lista entre los planes que terminan una compra de una sola cuota ni los planes de otro tipo", async () => {
+    scenario.occurrences = [
+      createOccurrence({
+        id: "pago-unico",
+        concept: "Zapatillas",
+        amount: 60_000,
+        installmentNumber: 1,
+        totalInstallments: 1,
+      }),
+    ]
+    scenario.plans = [
+      createPlan({
+        id: "pago-unico",
+        concept: "Zapatillas",
+        total_installments: 1,
+        expense_occurrences: [{ year: 2026, month: 5, installment_number: 1 }],
+      }),
+      createPlan({
+        id: "prestamo",
+        concept: "Préstamo auto",
+        kind: "loan",
+        total_installments: 24,
+        expense_occurrences: [{ year: 2026, month: 1, installment_number: 1 }],
+      }),
+    ]
+
+    renderUpcomingPage()
+
+    // El pago único sigue comprometiendo el mes, pero no es un plan en curso.
+    expect(await screen.findByText("Zapatillas")).toBeDefined()
+    expect(
+      screen.getByText(
+        "No hay planes de cuotas en curso que terminen desde este mes en adelante."
+      )
+    ).toBeDefined()
+    expect(screen.queryByText("Préstamo auto")).toBeNull()
+  })
+
+  it("avisa cuando el mes no tiene ninguna cuota comprometida", async () => {
+    renderUpcomingPage()
+
+    expect(
+      await screen.findByText(
+        "Este mes no tiene ninguna cuota de tarjeta comprometida."
+      )
+    ).toBeDefined()
+  })
+
+  it("muestra un error recuperable cuando la lectura falla", async () => {
+    scenario.failingTable = "expense_occurrences"
+
+    renderUpcomingPage()
+
+    expect(
+      await screen.findByText(
+        "No pudimos cargar lo comprometido de este mes. Intentá de nuevo en un momento."
+      )
+    ).toBeDefined()
   })
 })

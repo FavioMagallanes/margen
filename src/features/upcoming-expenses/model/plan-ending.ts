@@ -4,20 +4,26 @@ import {
 } from "@/features/recurring-expenses/model/recurring-plans"
 import { addMonths, type Period } from "@/shared/lib/period"
 
-import type { UpcomingExpenseKind } from "./upcoming-line"
+/**
+ * One generated month of a plan, with the installment it represents. The user
+ * can load a purchase starting from any installment, so the plan cannot be
+ * anchored on the assumption that its earliest row is the first installment.
+ */
+export type KnownOccurrence = {
+  period: Period
+  installmentNumber: number
+}
 
 /**
- * A plan with a known number of installments, as the database holds it. The
- * first period comes from its earliest occurrence, and is null when the plan
- * has not generated a single month yet.
+ * A card plan with a known number of installments, as the database holds it.
+ * The known occurrence is null when the plan has no usable generated month.
  */
 export type FinitePlan = {
   planId: string
   concept: string
   groupLabel: string
-  kind: UpcomingExpenseKind
   totalInstallments: number
-  firstPeriod: Period | null
+  knownOccurrence: KnownOccurrence | null
   stoppedFrom: Period | null
 }
 
@@ -25,28 +31,33 @@ export type PlanEnding = {
   planId: string
   concept: string
   groupLabel: string
-  kind: UpcomingExpenseKind
   endsAt: Period
 }
 
 /**
- * Month arithmetic, not a count of generated rows: a plan whose future months
- * are still ungenerated ends on the same month either way.
+ * Month arithmetic over a known installment, not a count of generated rows:
+ * installments advance one calendar month each, so the months still missing
+ * after the known one are `totalInstallments - installmentNumber`.
  */
 export const planEndingPeriod = (
-  firstPeriod: Period,
+  period: Period,
+  installmentNumber: number,
   totalInstallments: number
-): Period => addMonths(firstPeriod, totalInstallments - 1)
+): Period => addMonths(period, totalInstallments - installmentNumber)
 
 const byEndingPeriod = (left: PlanEnding, right: PlanEnding): number =>
   left.endsAt.year - right.endsAt.year || left.endsAt.month - right.endsAt.month
 
 const toPlanEnding = (plan: FinitePlan, period: Period): PlanEnding | null => {
-  if (plan.firstPeriod === null || isStoppedAt(plan.stoppedFrom, period)) {
+  if (plan.knownOccurrence === null || isStoppedAt(plan.stoppedFrom, period)) {
     return null
   }
 
-  const endsAt = planEndingPeriod(plan.firstPeriod, plan.totalInstallments)
+  const endsAt = planEndingPeriod(
+    plan.knownOccurrence.period,
+    plan.knownOccurrence.installmentNumber,
+    plan.totalInstallments
+  )
 
   if (!isPeriodOnOrAfter(endsAt, period)) {
     return null
@@ -56,7 +67,6 @@ const toPlanEnding = (plan: FinitePlan, period: Period): PlanEnding | null => {
     planId: plan.planId,
     concept: plan.concept,
     groupLabel: plan.groupLabel,
-    kind: plan.kind,
     endsAt,
   }
 }

@@ -14,7 +14,6 @@ import { formatArs } from "@/shared/lib/money"
 
 import {
   classifyUpcomingLine,
-  UPCOMING_KIND_LABELS,
   type UpcomingExpenseLine,
 } from "../model/upcoming-line"
 
@@ -32,7 +31,7 @@ const usdFormatter = new Intl.NumberFormat("es-AR", {
 
 export const MISSING_AMOUNT_LABEL = "Sin dato"
 
-/** The amount as it was loaded or projected, in its own currency (RF-06). */
+/** The amount as it was loaded, in its own currency (RF-06). */
 const formatOriginalAmount = (line: UpcomingExpenseLine): string => {
   if (line.amount === null) {
     return MISSING_AMOUNT_LABEL
@@ -55,7 +54,7 @@ export const UpcomingLinesTable = ({
   arsPerUsd,
 }: UpcomingLinesTableProps) => (
   <Card className="py-0">
-    <Table className="min-w-[760px] text-sm">
+    <Table className="min-w-[640px] text-sm">
       <TableCaption className="sr-only">{caption}</TableCaption>
       <TableHeader>
         <TableRow>
@@ -64,9 +63,6 @@ export const UpcomingLinesTable = ({
           </TableHead>
           <TableHead scope="col" className="px-4 text-muted-foreground">
             Agrupación
-          </TableHead>
-          <TableHead scope="col" className="px-4 text-muted-foreground">
-            Tipo
           </TableHead>
           <TableHead scope="col" className="px-4 text-muted-foreground">
             Cuota
@@ -91,21 +87,9 @@ export const UpcomingLinesTable = ({
 
           return (
             <TableRow key={line.id}>
-              <TableCell className="px-4">
-                <span className="flex items-center gap-2">
-                  {line.concept}
-                  {line.origin === "projected" ? (
-                    <Badge variant="outline">Proyectado</Badge>
-                  ) : null}
-                </span>
-              </TableCell>
+              <TableCell className="px-4">{line.concept}</TableCell>
               <TableCell className="px-4 text-muted-foreground">
                 {line.group}
-              </TableCell>
-              <TableCell className="px-4">
-                <Badge variant="secondary">
-                  {UPCOMING_KIND_LABELS[line.kind]}
-                </Badge>
               </TableCell>
               <TableCell className="px-4">
                 {line.installment === null ? (
