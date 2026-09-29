@@ -13,13 +13,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { AuthProvider } from "@/features/auth/auth-provider"
 import { createFakeSession } from "@/features/auth/tests/fixtures/session"
-import { CardPurchasesPage } from "@/features/card-purchases/components/card-purchases-page"
+import { MonthlyBudgetPage } from "@/features/monthly-budget/monthly-budget-page"
 import { getCurrentPeriod, type Period } from "@/shared/lib/period"
-
-type StoredBudget = {
-  salary_ars: number | null
-  exchange_rate_value: number | null
-}
 
 type StoredOccurrence = {
   id: string
@@ -46,7 +41,6 @@ const { authMock, fromMock, rpcMock, deleteMock, selectFiltersMock, scenario } =
 
     const scenario = {
       occurrences: [] as Occurrence[],
-      budgets: new Map<string, StoredBudget>(),
       loadError: null as { message: string } | null,
       deleteError: null as { message: string } | null,
       rpcError: null as { message: string } | null,
@@ -75,12 +69,16 @@ const { authMock, fromMock, rpcMock, deleteMock, selectFiltersMock, scenario } =
 
         selectFiltersMock(table, filters)
 
+        // The budget reads its salary elsewhere; this suite only cares about
+        // the card purchases of the month.
         if (table === "monthly_budgets") {
-          const stored = scenario.budgets.get(
-            `${filters.year}-${filters.month}`
-          )
+          return { data: null, error: null }
+        }
 
-          return { data: stored ?? null, error: null }
+        // The budget reads its one-off expenses from another table; this suite
+        // only cares about the card purchases of the month.
+        if (table === "other_expenses") {
+          return { data: [], error: null }
         }
 
         // The real query filters the embedded plan with "!inner"; the mock
@@ -188,10 +186,6 @@ const setOccurrences = (occurrences: StoredOccurrence[]) => {
   scenario.occurrences = occurrences
 }
 
-const setBudget = ({ year, month }: Period, budget: StoredBudget) => {
-  scenario.budgets.set(`${year}-${month}`, budget)
-}
-
 // The route decides which month the page is looking at; the form, instead,
 // always works against the real current month.
 const VIEWED_PERIOD: Period = { year: 2026, month: 3 }
@@ -209,7 +203,7 @@ const monthLabel = ({ year, month }: Period) => {
   return name.charAt(0).toUpperCase() + name.slice(1)
 }
 
-const renderCardPurchasesPage = (period: Period = VIEWED_PERIOD) => {
+const renderBudgetPage = (period: Period = VIEWED_PERIOD) => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
@@ -218,18 +212,34 @@ const renderCardPurchasesPage = (period: Period = VIEWED_PERIOD) => {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <MemoryRouter
-          initialEntries={[`/months/${period.year}/${period.month}/cards`]}
+          initialEntries={[`/months/${period.year}/${period.month}`]}
         >
           <Routes>
             <Route
-              path="/months/:year/:month/cards"
-              element={<CardPurchasesPage />}
+              path="/months/:year/:month"
+              element={<MonthlyBudgetPage />}
             />
           </Routes>
         </MemoryRouter>
       </AuthProvider>
     </QueryClientProvider>
   )
+}
+
+/**
+ * Every load starts at the budget's single entry point: the type of expense is
+ * chosen there, and only then the feature's own form opens.
+ */
+const openAddExpense = async (optionLabel: string) => {
+  fireEvent.click(await screen.findByRole("button", { name: "Agregar gasto" }))
+  fireEvent.click(await screen.findByRole("button", { name: optionLabel }))
+}
+
+const openPurchaseForm = async () => {
+  await openAddExpense("Compra con tarjeta")
+
+  // The form waits for the purchases of the month before opening (RF-09).
+  await screen.findByLabelText("Concepto")
 }
 
 const rowOf = (concept: string) =>
@@ -247,14 +257,13 @@ const selectOption = (fieldLabel: string, optionLabel: string) => {
   fireEvent.click(option)
 }
 
-describe("CardPurchasesPage", () => {
+describe("compras con tarjeta desde Presupuesto", () => {
   // Vitest runs without globals, so Testing Library's auto cleanup is not registered.
   afterEach(cleanup)
 
   beforeEach(() => {
     vi.clearAllMocks()
     scenario.occurrences = []
-    scenario.budgets.clear()
     scenario.loadError = null
     scenario.deleteError = null
     scenario.rpcError = null
@@ -269,69 +278,47 @@ describe("CardPurchasesPage", () => {
   })
 
   it("muestra el mes vacío sin perder el acceso a cargar una compra", async () => {
-    renderCardPurchasesPage()
+    renderBudgetPage()
 
     expect(
-      await screen.findByText(
-        "Todavía no cargaste compras con tarjeta para este mes."
-      )
+      await screen.findByText("Todavía no cargaste gastos para este mes.")
     ).toBeDefined()
-    expect(screen.getByRole("button", { name: "Agregar compra" })).toBeDefined()
+    expect(screen.getByRole("button", { name: "Agregar gasto" })).toBeDefined()
   })
 
-  it("agrupa las compras por tarjeta, marca la última cuota y deja fuera otros planes", async () => {
+  it("lista la compra en el mes, marca la última cuota y consulta solo las compras con tarjeta al abrir el formulario", async () => {
     setOccurrences([
       notebookOccurrence,
       lastInstallmentOccurrence,
       loanOccurrence,
     ])
 
-    renderCardPurchasesPage()
+    renderBudgetPage()
 
     expect(await screen.findByText("Notebook")).toBeDefined()
-    expect(screen.getByText("BBVA")).toBeDefined()
-    expect(screen.getByText("Supervielle")).toBeDefined()
-    expect(screen.queryByText("Préstamo del banco")).toBeNull()
-
+    expect(rowOf("Notebook").getByText("BBVA")).toBeDefined()
     expect(rowOf("Notebook").getByText("4/6")).toBeDefined()
     expect(rowOf("Notebook").queryByText("Última cuota")).toBeNull()
     expect(rowOf("Auriculares").getByText("3/3")).toBeDefined()
     expect(rowOf("Auriculares").getByText("Última cuota")).toBeDefined()
 
-    expect(selectFiltersMock).toHaveBeenCalledWith("expense_occurrences", {
-      year: VIEWED_PERIOD.year,
-      month: VIEWED_PERIOD.month,
-      "spending_plans.kind": "card_purchase",
+    await openPurchaseForm()
+
+    // RF-09: the duplicate warning compares against the purchases of the
+    // month, so the form reads them with the same "!inner" kind filter.
+    await waitFor(() => {
+      expect(selectFiltersMock).toHaveBeenCalledWith("expense_occurrences", {
+        year: VIEWED_PERIOD.year,
+        month: VIEWED_PERIOD.month,
+        "spending_plans.kind": "card_purchase",
+      })
     })
   })
 
-  it("muestra «Sin dato» en el equivalente en ARS cuando el mes no tiene cotización", async () => {
-    setOccurrences([lastInstallmentOccurrence])
-
-    renderCardPurchasesPage()
-
-    expect(await screen.findByText("Equivalente en ARS")).toBeDefined()
-    expect(rowOf("Auriculares").getByText("Sin dato")).toBeDefined()
-  })
-
-  it("convierte la cuota en USD con la cotización guardada del mes", async () => {
-    setBudget(VIEWED_PERIOD, { salary_ars: null, exchange_rate_value: 1500 })
-    setOccurrences([lastInstallmentOccurrence])
-
-    renderCardPurchasesPage()
-
-    // 120 USD * 1500 = 180.000 ARS.
-    await screen.findByRole("row", { name: /Auriculares/ })
-    expect(rowOf("Auriculares").getByText(/180\.000,00/)).toBeDefined()
-    expect(rowOf("Auriculares").queryByText("Sin dato")).toBeNull()
-  })
-
   it("solo ofrece meses del mes real actual hasta diciembre, sin pedir el año", async () => {
-    renderCardPurchasesPage()
+    renderBudgetPage()
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Agregar compra" })
-    )
+    await openPurchaseForm()
 
     expect(screen.queryByLabelText("Año de la cuota")).toBeNull()
 
@@ -353,11 +340,9 @@ describe("CardPurchasesPage", () => {
   })
 
   it("crea una compra con los datos que el usuario eligió", async () => {
-    renderCardPurchasesPage()
+    renderBudgetPage()
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Agregar compra" })
-    )
+    await openPurchaseForm()
 
     fireEvent.change(screen.getByLabelText("Concepto"), {
       target: { value: "Notebook" },
@@ -396,11 +381,9 @@ describe("CardPurchasesPage", () => {
   })
 
   it("«Un pago» fuerza cuota 1 de 1 sin pedir los números de cuota", async () => {
-    renderCardPurchasesPage()
+    renderBudgetPage()
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Agregar compra" })
-    )
+    await openPurchaseForm()
 
     fireEvent.change(screen.getByLabelText("Concepto"), {
       target: { value: "Auriculares" },
@@ -427,11 +410,9 @@ describe("CardPurchasesPage", () => {
   })
 
   it("no deja guardar una cuota inicial mayor al total de cuotas", async () => {
-    renderCardPurchasesPage()
+    renderBudgetPage()
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Agregar compra" })
-    )
+    await openPurchaseForm()
 
     fireEvent.change(screen.getByLabelText("Concepto"), {
       target: { value: "Notebook" },
@@ -459,7 +440,7 @@ describe("CardPurchasesPage", () => {
   it("edita la compra desde la cuota y el mes de la fila editada", async () => {
     setOccurrences([notebookOccurrence])
 
-    renderCardPurchasesPage()
+    renderBudgetPage()
 
     fireEvent.click(
       await within(
@@ -467,7 +448,7 @@ describe("CardPurchasesPage", () => {
       ).findByRole("button", { name: "Editar" })
     )
 
-    fireEvent.change(screen.getByLabelText("Importe de la cuota"), {
+    fireEvent.change(await screen.findByLabelText("Importe de la cuota"), {
       target: { value: "50000" },
     })
     fireEvent.change(screen.getByLabelText("Total de cuotas"), {
@@ -494,7 +475,7 @@ describe("CardPurchasesPage", () => {
   it("elimina la compra solo después de confirmar", async () => {
     setOccurrences([notebookOccurrence])
 
-    renderCardPurchasesPage()
+    renderBudgetPage()
 
     fireEvent.click(
       await within(
@@ -522,11 +503,11 @@ describe("CardPurchasesPage", () => {
   it("muestra un error genérico sin filtrar el detalle de Supabase", async () => {
     scenario.loadError = { message: "database exploded" }
 
-    renderCardPurchasesPage()
+    renderBudgetPage()
 
     expect(
       await screen.findByText(
-        "No pudimos cargar las compras con tarjeta del mes. Intentá de nuevo en un momento."
+        "No pudimos cargar el presupuesto del mes. Intentá de nuevo en un momento."
       )
     ).toBeDefined()
     expect(screen.queryByText(/database exploded/)).toBeNull()
@@ -567,7 +548,9 @@ const fillPurchase = ({
 // The same purchase already loaded in the month, retyped with a different
 // casing and stray spaces: RF-09 still considers it «muy parecido».
 const openFormAndRepeatNotebook = async () => {
-  fireEvent.click(await screen.findByRole("button", { name: "Agregar compra" }))
+  await openPurchaseForm()
+
+  await screen.findByLabelText("Concepto")
 
   fillPurchase({
     concept: "  notebook ",
@@ -577,13 +560,12 @@ const openFormAndRepeatNotebook = async () => {
   })
 }
 
-describe("CardPurchasesPage: carga rápida (RF-09)", () => {
+describe("compras con tarjeta desde Presupuesto: carga rápida (RF-09)", () => {
   afterEach(cleanup)
 
   beforeEach(() => {
     vi.clearAllMocks()
     scenario.occurrences = []
-    scenario.budgets.clear()
     scenario.loadError = null
     scenario.deleteError = null
     scenario.rpcError = null
@@ -598,11 +580,11 @@ describe("CardPurchasesPage: carga rápida (RF-09)", () => {
   })
 
   it("«Guardar y agregar otro» guarda y deja el formulario abierto y en blanco", async () => {
-    renderCardPurchasesPage(CURRENT_PERIOD)
+    renderBudgetPage(CURRENT_PERIOD)
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Agregar compra" })
-    )
+    await openPurchaseForm()
+
+    await screen.findByLabelText("Concepto")
 
     fillPurchase({
       concept: "Notebook",
@@ -646,11 +628,11 @@ describe("CardPurchasesPage: carga rápida (RF-09)", () => {
   })
 
   it("«Guardar compra» sigue cerrando el formulario", async () => {
-    renderCardPurchasesPage(CURRENT_PERIOD)
+    renderBudgetPage(CURRENT_PERIOD)
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Agregar compra" })
-    )
+    await openPurchaseForm()
+
+    await screen.findByLabelText("Concepto")
 
     fillPurchase({
       concept: "Notebook",
@@ -669,7 +651,7 @@ describe("CardPurchasesPage: carga rápida (RF-09)", () => {
   it("avisa del posible duplicado y no guarda nada si el usuario revisa", async () => {
     setOccurrences([notebookOccurrence])
 
-    renderCardPurchasesPage(CURRENT_PERIOD)
+    renderBudgetPage(CURRENT_PERIOD)
 
     await openFormAndRepeatNotebook()
 
@@ -697,7 +679,7 @@ describe("CardPurchasesPage: carga rápida (RF-09)", () => {
   it("guarda igual cuando el usuario confirma el aviso", async () => {
     setOccurrences([notebookOccurrence])
 
-    renderCardPurchasesPage(CURRENT_PERIOD)
+    renderBudgetPage(CURRENT_PERIOD)
 
     await openFormAndRepeatNotebook()
 
@@ -720,7 +702,7 @@ describe("CardPurchasesPage: carga rápida (RF-09)", () => {
   it("no interrumpe el caso normal: otro importe no es un duplicado", async () => {
     setOccurrences([{ ...notebookOccurrence, amount: 30_000 }])
 
-    renderCardPurchasesPage(CURRENT_PERIOD)
+    renderBudgetPage(CURRENT_PERIOD)
 
     await openFormAndRepeatNotebook()
 
@@ -792,18 +774,17 @@ const addBatchItem = (fields: BatchItemFields) => {
 }
 
 const openBatchPanel = async () => {
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Cargar varias compras" })
-  )
+  await openAddExpense("Cargar varias compras")
+
+  await screen.findByRole("group", { name: DRAFT_GROUP })
 }
 
-describe("CardPurchasesPage: carga de varias compras (RF-09)", () => {
+describe("compras con tarjeta desde Presupuesto: carga de varias compras (RF-09)", () => {
   afterEach(cleanup)
 
   beforeEach(() => {
     vi.clearAllMocks()
     scenario.occurrences = []
-    scenario.budgets.clear()
     scenario.loadError = null
     scenario.deleteError = null
     scenario.rpcError = null
@@ -818,7 +799,7 @@ describe("CardPurchasesPage: carga de varias compras (RF-09)", () => {
   })
 
   it("guarda varias compras del mes en una sola llamada atómica", async () => {
-    renderCardPurchasesPage()
+    renderBudgetPage()
 
     await openBatchPanel()
 
@@ -866,7 +847,7 @@ describe("CardPurchasesPage: carga de varias compras (RF-09)", () => {
   })
 
   it("deja corregir y quitar ítems antes de confirmar el lote", async () => {
-    renderCardPurchasesPage()
+    renderBudgetPage()
 
     await openBatchPanel()
 
@@ -911,7 +892,7 @@ describe("CardPurchasesPage: carga de varias compras (RF-09)", () => {
   })
 
   it("un ítem inválido bloquea el guardado de todo el lote", async () => {
-    renderCardPurchasesPage()
+    renderBudgetPage()
 
     await openBatchPanel()
 
@@ -955,7 +936,7 @@ describe("CardPurchasesPage: carga de varias compras (RF-09)", () => {
   it("avisa cuando el ítem repite un gasto ya cargado del mes", async () => {
     setOccurrences([notebookOccurrence])
 
-    renderCardPurchasesPage()
+    renderBudgetPage()
 
     await openBatchPanel()
 
@@ -976,7 +957,7 @@ describe("CardPurchasesPage: carga de varias compras (RF-09)", () => {
   })
 
   it("avisa cuando el ítem repite otro ítem del mismo lote", async () => {
-    renderCardPurchasesPage()
+    renderBudgetPage()
 
     await openBatchPanel()
 

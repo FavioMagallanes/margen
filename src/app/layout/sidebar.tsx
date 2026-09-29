@@ -3,7 +3,6 @@ import { NavLink } from "react-router"
 import {
   BankFreeIcons,
   Calendar03FreeIcons,
-  CreditCardFreeIcons,
   Invoice01FreeIcons,
   RepeatFreeIcons,
   ShoppingBag01FreeIcons,
@@ -29,12 +28,6 @@ const NAV_ITEMS: NavItem[] = [
     icon: Wallet01FreeIcons,
     buildPath: ({ year, month }) => `/months/${year}/${month}`,
     end: true,
-  },
-  {
-    label: "Tarjetas",
-    icon: CreditCardFreeIcons,
-    buildPath: ({ year, month }) => `/months/${year}/${month}/cards`,
-    end: false,
   },
   {
     label: "Préstamos",
