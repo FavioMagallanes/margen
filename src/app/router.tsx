@@ -4,7 +4,6 @@ import { AppShell } from "@/app/layout/app-shell"
 import { GuestOnlyRoute } from "@/features/auth/components/guest-only-route"
 import { LoginPage } from "@/features/auth/components/login-page"
 import { RequireAuth } from "@/features/auth/components/require-auth"
-import { LoansPage } from "@/features/loans/components/loans-page"
 import { MonthlyBudgetPage } from "@/features/monthly-budget/monthly-budget-page"
 import { OtherExpensesPage } from "@/features/other-expenses/components/other-expenses-page"
 import { RecurringExpensesPage } from "@/features/recurring-expenses/components/recurring-expenses-page"
@@ -38,7 +37,6 @@ export const router = createBrowserRouter([
         element: <AppShell />,
         children: [
           { index: true, element: <MonthlyBudgetPage /> },
-          { path: "loans", element: <LoansPage /> },
           {
             path: "recurring",
             element: <RecurringExpensesPage />,

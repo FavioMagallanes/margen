@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { AuthProvider } from "@/features/auth/auth-provider"
 import { createFakeSession } from "@/features/auth/tests/fixtures/session"
-import { LoansPage } from "@/features/loans/components/loans-page"
+import { MonthlyBudgetPage } from "@/features/monthly-budget/monthly-budget-page"
 import type { Period } from "@/shared/lib/period"
 
 type StoredOccurrence = {
@@ -29,6 +29,7 @@ type StoredOccurrence = {
     group_label: string
     total_installments: number | null
     kind: string
+    currency: string
   }
 }
 
@@ -70,6 +71,16 @@ const { authMock, fromMock, rpcMock, deleteMock, selectFiltersMock, scenario } =
 
         if (scenario.loadError !== null) {
           return { data: null, error: scenario.loadError }
+        }
+
+        // The budget reads its salary and its one-off expenses elsewhere;
+        // this suite only cares about the loans of the month.
+        if (table === "monthly_budgets") {
+          return { data: null, error: null }
+        }
+
+        if (table === "other_expenses") {
+          return { data: [], error: null }
         }
 
         selectFiltersMock(table, filters, { missingAmount: wantsMissingAmount })
@@ -157,6 +168,9 @@ const bankLoanPlan = {
   group_label: "BBVA",
   total_installments: 12,
   kind: "loan",
+  // The loans query never reads the currency (a loan is always in ARS), but
+  // the month summary does, so the stored row carries it.
+  currency: "ars",
 }
 
 const currentInstallment: StoredOccurrence = {
@@ -189,6 +203,14 @@ const laterInstallment: StoredOccurrence = {
   spending_plans: bankLoanPlan,
 }
 
+// Same installment as currentInstallment, but still missing its amount: a
+// month that already happened without one is what makes the subtotal
+// incomplete, unlike a future installment that has not been completed yet.
+const currentInstallmentMissingAmount: StoredOccurrence = {
+  ...currentInstallment,
+  amount: null,
+}
+
 const cardInstallment: StoredOccurrence = {
   id: "occurrence-4",
   plan_id: "plan-2",
@@ -202,6 +224,7 @@ const cardInstallment: StoredOccurrence = {
     group_label: "BBVA",
     total_installments: 6,
     kind: "card_purchase",
+    currency: "ars",
   },
 }
 
@@ -209,7 +232,7 @@ const setOccurrences = (occurrences: StoredOccurrence[]) => {
   scenario.occurrences = occurrences
 }
 
-const renderLoansPage = () => {
+const renderBudgetPage = () => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
@@ -219,11 +242,14 @@ const renderLoansPage = () => {
       <AuthProvider>
         <MemoryRouter
           initialEntries={[
-            `/months/${VIEWED_PERIOD.year}/${VIEWED_PERIOD.month}/loans`,
+            `/months/${VIEWED_PERIOD.year}/${VIEWED_PERIOD.month}`,
           ]}
         >
           <Routes>
-            <Route path="/months/:year/:month/loans" element={<LoansPage />} />
+            <Route
+              path="/months/:year/:month"
+              element={<MonthlyBudgetPage />}
+            />
           </Routes>
         </MemoryRouter>
       </AuthProvider>
@@ -231,10 +257,22 @@ const renderLoansPage = () => {
   )
 }
 
+/**
+ * Every load starts at the budget's single entry point: the type of expense is
+ * chosen there, and only then the feature's own form opens.
+ */
+const openLoanForm = async () => {
+  fireEvent.click(await screen.findByRole("button", { name: "Agregar gasto" }))
+  fireEvent.click(await screen.findByRole("button", { name: "Préstamo" }))
+
+  // The form waits for the loans of the month before opening (RF-09).
+  await screen.findByLabelText("Concepto")
+}
+
 const rowOf = (concept: string) =>
   within(screen.getByRole("row", { name: new RegExp(concept) }))
 
-describe("LoansPage", () => {
+describe("préstamos desde Presupuesto", () => {
   // Vitest runs without globals, so Testing Library's auto cleanup is not registered.
   afterEach(cleanup)
 
@@ -255,25 +293,24 @@ describe("LoansPage", () => {
   })
 
   it("muestra el mes vacío sin perder el acceso a cargar un préstamo", async () => {
-    renderLoansPage()
+    renderBudgetPage()
 
     expect(
-      await screen.findByText("Todavía no cargaste préstamos para este mes.")
+      await screen.findByText("Todavía no cargaste gastos para este mes.")
     ).toBeDefined()
-    expect(
-      screen.getByRole("button", { name: "Agregar préstamo" })
-    ).toBeDefined()
+    expect(screen.getByRole("button", { name: "Agregar gasto" })).toBeDefined()
   })
 
-  it("agrupa por entidad, marca la cuota del mes y deja fuera otros planes", async () => {
+  it("muestra la cuota del mes y consulta solo los préstamos al abrir el formulario", async () => {
     setOccurrences([currentInstallment, cardInstallment])
 
-    renderLoansPage()
+    renderBudgetPage()
 
     expect(await screen.findByText("Préstamo personal")).toBeDefined()
-    expect(screen.queryByText("Notebook")).toBeNull()
     expect(rowOf("Préstamo personal").getByText("4/12")).toBeDefined()
     expect(rowOf("Préstamo personal").getByText(/120\.000,00/)).toBeDefined()
+
+    await openLoanForm()
 
     expect(selectFiltersMock).toHaveBeenCalledWith(
       "expense_occurrences",
@@ -287,11 +324,9 @@ describe("LoansPage", () => {
   })
 
   it("crea un préstamo en el mes que se está viendo", async () => {
-    renderLoansPage()
+    renderBudgetPage()
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Agregar préstamo" })
-    )
+    await openLoanForm()
 
     fireEvent.change(screen.getByLabelText("Concepto"), {
       target: { value: "Préstamo personal" },
@@ -325,11 +360,9 @@ describe("LoansPage", () => {
   })
 
   it("no deja guardar una cuota inicial mayor al total de cuotas", async () => {
-    renderLoansPage()
+    renderBudgetPage()
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Agregar préstamo" })
-    )
+    await openLoanForm()
 
     fireEvent.change(screen.getByLabelText("Concepto"), {
       target: { value: "Préstamo personal" },
@@ -357,7 +390,7 @@ describe("LoansPage", () => {
   it("edita el préstamo desde la cuota del mes sin tocar ningún importe", async () => {
     setOccurrences([currentInstallment, nextInstallment])
 
-    renderLoansPage()
+    renderBudgetPage()
 
     fireEvent.click(
       await within(
@@ -365,7 +398,7 @@ describe("LoansPage", () => {
       ).findByRole("button", { name: "Editar" })
     )
 
-    fireEvent.change(screen.getByLabelText("Entidad"), {
+    fireEvent.change(await screen.findByLabelText("Entidad"), {
       target: { value: "Mercado Pago" },
     })
     fireEvent.change(screen.getByLabelText("Total de cuotas"), {
@@ -398,7 +431,7 @@ describe("LoansPage", () => {
   it("no deja reducir el total por debajo de la cuota que se está editando", async () => {
     setOccurrences([currentInstallment])
 
-    renderLoansPage()
+    renderBudgetPage()
 
     fireEvent.click(
       await within(
@@ -406,7 +439,7 @@ describe("LoansPage", () => {
       ).findByRole("button", { name: "Editar" })
     )
 
-    fireEvent.change(screen.getByLabelText("Total de cuotas"), {
+    fireEvent.change(await screen.findByLabelText("Total de cuotas"), {
       target: { value: "2" },
     })
     fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }))
@@ -422,7 +455,7 @@ describe("LoansPage", () => {
   it("completa en lote las cuotas futuras sin importe", async () => {
     setOccurrences([currentInstallment, nextInstallment, laterInstallment])
 
-    renderLoansPage()
+    renderBudgetPage()
 
     fireEvent.click(
       await within(
@@ -453,7 +486,7 @@ describe("LoansPage", () => {
   it("no guarda el lote si todas las cuotas quedaron vacías", async () => {
     setOccurrences([currentInstallment, nextInstallment])
 
-    renderLoansPage()
+    renderBudgetPage()
 
     fireEvent.click(
       await within(
@@ -473,31 +506,47 @@ describe("LoansPage", () => {
     expect(rpcMock).not.toHaveBeenCalled()
   })
 
-  it("muestra «Falta completar importe» y avisa que el subtotal está incompleto", async () => {
+  it("avisa cuántas cuotas ya vencidas siguen sin importe", async () => {
+    setOccurrences([currentInstallmentMissingAmount, nextInstallment])
+
+    renderBudgetPage()
+
+    fireEvent.click(
+      await within(
+        await screen.findByRole("row", { name: /Préstamo personal/ })
+      ).findByRole("button", { name: "Completar próximas cuotas" })
+    )
+
+    // La cuota de marzo (mes visto) ya venció y sigue sin importe; la de
+    // abril todavía no, así que no cuenta para el aviso.
+    expect(
+      await screen.findByText(
+        "Subtotal incompleto: hay 1 cuota sin importe en este préstamo hasta el mes que estás viendo."
+      )
+    ).toBeDefined()
+  })
+
+  it("muestra «Sin dato» y avisa que el total del grupo está incompleto", async () => {
     setOccurrences([{ ...currentInstallment, amount: null }, nextInstallment])
 
-    renderLoansPage()
+    renderBudgetPage()
 
     expect(
       await screen.findByRole("row", { name: /Préstamo personal/ })
     ).toBeDefined()
-    expect(
-      rowOf("Préstamo personal").getByText("Falta completar importe")
-    ).toBeDefined()
+    expect(rowOf("Préstamo personal").getByText("Sin dato")).toBeDefined()
 
-    // Only the installment of this month counts as missing: the next one is
-    // still in the future.
+    // RF-03: a missing amount is not a zero expense, so the month says its
+    // total is incomplete instead of pretending to be exact.
     expect(
-      await screen.findByText(
-        /Subtotal incompleto: hay 1 cuota sin importe en este mes o en meses anteriores/
-      )
+      screen.getByText("Total incompleto: faltan datos de este grupo.")
     ).toBeDefined()
   })
 
   it("elimina el préstamo solo después de confirmar", async () => {
     setOccurrences([currentInstallment])
 
-    renderLoansPage()
+    renderBudgetPage()
 
     fireEvent.click(
       await within(
@@ -520,11 +569,11 @@ describe("LoansPage", () => {
   it("muestra un error genérico sin filtrar el detalle de Supabase", async () => {
     scenario.loadError = { message: "database exploded" }
 
-    renderLoansPage()
+    renderBudgetPage()
 
     expect(
       await screen.findByText(
-        "No pudimos cargar los préstamos del mes. Intentá de nuevo en un momento."
+        "No pudimos cargar el presupuesto del mes. Intentá de nuevo en un momento."
       )
     ).toBeDefined()
     expect(screen.queryByText(/database exploded/)).toBeNull()
@@ -566,9 +615,7 @@ const fillLoan = ({
 // The very installment already loaded this month, retyped with another
 // casing: RF-09 still considers it «muy parecido».
 const openFormAndRepeatCurrentInstallment = async () => {
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Agregar préstamo" })
-  )
+  await openLoanForm()
 
   fillLoan({
     concept: "préstamo personal",
@@ -579,7 +626,7 @@ const openFormAndRepeatCurrentInstallment = async () => {
   })
 }
 
-describe("LoansPage: carga rápida (RF-09)", () => {
+describe("préstamos desde Presupuesto: carga rápida (RF-09)", () => {
   afterEach(cleanup)
 
   beforeEach(() => {
@@ -599,11 +646,9 @@ describe("LoansPage: carga rápida (RF-09)", () => {
   })
 
   it("«Guardar y agregar otro» guarda y deja el formulario abierto y en blanco", async () => {
-    renderLoansPage()
+    renderBudgetPage()
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Agregar préstamo" })
-    )
+    await openLoanForm()
 
     fillLoan({
       concept: "Préstamo personal",
@@ -647,7 +692,7 @@ describe("LoansPage: carga rápida (RF-09)", () => {
   it("avisa del posible duplicado y no guarda nada si el usuario revisa", async () => {
     setOccurrences([currentInstallment])
 
-    renderLoansPage()
+    renderBudgetPage()
 
     await openFormAndRepeatCurrentInstallment()
 
@@ -672,7 +717,7 @@ describe("LoansPage: carga rápida (RF-09)", () => {
   it("guarda igual cuando el usuario confirma el aviso", async () => {
     setOccurrences([currentInstallment])
 
-    renderLoansPage()
+    renderBudgetPage()
 
     await openFormAndRepeatCurrentInstallment()
 
