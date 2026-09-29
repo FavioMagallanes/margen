@@ -8,7 +8,6 @@ import {
   REPORT_CURRENCY_LABELS,
   REPORT_KIND_LABELS,
 } from "../model/report-line"
-import { formatScopeLabel } from "../model/report-scope"
 import {
   formatOriginalAmount,
   formatUsd,
@@ -25,7 +24,7 @@ const generatedAtFormatter = new Intl.DateTimeFormat("es-AR", {
 
 const describeExport = ({ isPartial, source }: ReportDocumentData): string => {
   if (!isPartial) {
-    return "Alcance completo elegido"
+    return "Mes completo"
   }
 
   return source === "selection"
@@ -82,7 +81,7 @@ export const ReportPdfDocument = ({ data }: ReportPdfDocumentProps) => (
     <Page size="A4" style={styles.page} wrap>
       <Text style={styles.title}>Reporte de gastos</Text>
       <Text style={styles.headerLine}>
-        Períodos incluidos: {formatScopeLabel(data.scope)}
+        Mes: {formatPeriodLabel(data.period)}
       </Text>
       <Text style={styles.headerLine}>
         Generado el {generatedAtFormatter.format(data.generatedAt)}
@@ -103,9 +102,6 @@ export const ReportPdfDocument = ({ data }: ReportPdfDocumentProps) => (
           <View key={line.id} style={styles.bodyRow} wrap={false}>
             <View style={styles.concept}>
               <Text>{line.concept}</Text>
-              <Text style={styles.headerLine}>
-                {formatPeriodLabel({ year: line.year, month: line.month })}
-              </Text>
               {line.amountIsEstimated ? (
                 <Text style={styles.estimated}>Estimado</Text>
               ) : null}

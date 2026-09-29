@@ -46,40 +46,32 @@ const { authMock, fromMock, scenario } = vi.hoisted(() => {
   }
 
   /**
-   * The real query narrows by year with gte/lte, so the mock applies the same
-   * bounds: a report of one month must not receive another year's rows.
+   * The real query filters the exact (year, month) pair with eq, so the mock
+   * applies the same equality: a report never receives another month's rows.
    */
   const createBuilder = (table: string) => {
-    let minYear: number | null = null
-    let maxYear: number | null = null
+    const equals = new Map<string, unknown>()
 
     const result = (): QueryResult => {
       if (scenario.failingTable === table) {
         return { data: null, error: { message: "database exploded" } }
       }
 
-      const rows = rowsOf(table).filter((row) => {
-        const year = (row as { year: number }).year
+      const rows = rowsOf(table).filter((row) =>
+        [...equals].every(([column, value]) => {
+          const cell = (row as Record<string, unknown>)[column]
 
-        return (
-          (minYear === null || year >= minYear) &&
-          (maxYear === null || year <= maxYear)
-        )
-      })
+          return cell === undefined || cell === value
+        })
+      )
 
       return { data: rows, error: null }
     }
 
     const builder = {
       select: () => builder,
-      eq: () => builder,
-      gte: (_column: string, value: number) => {
-        minYear = value
-
-        return builder
-      },
-      lte: (_column: string, value: number) => {
-        maxYear = value
+      eq: (column: string, value: unknown) => {
+        equals.set(column, value)
 
         return builder
       },
@@ -126,9 +118,6 @@ const renderReportsPage = () => {
     </QueryClientProvider>
   )
 }
-
-const checkboxOf = (concept: string) =>
-  screen.getByRole("checkbox", { name: new RegExp(`Seleccionar ${concept}`) })
 
 describe("ReportsPage", () => {
   // Vitest runs without globals, so Testing Library's auto cleanup is not registered.
@@ -208,33 +197,16 @@ describe("ReportsPage", () => {
     })
   })
 
-  it("arranca en el mes actual y convierte cada línea con la cotización de su mes", async () => {
+  it("consulta solo el mes actual y convierte cada línea con su cotización", async () => {
     renderReportsPage()
 
     expect(await screen.findByText("Notebook")).toBeDefined()
     expect(screen.getByText("Hosting")).toBeDefined()
-    // El mes anterior no forma parte del alcance por defecto.
+    // El reporte es siempre el mes actual: el mes anterior no entra.
     expect(screen.queryByText("Netflix")).toBeNull()
 
     // 100 USD con la cotización guardada del mes actual (1.600).
     expect(screen.getByText(/160\.000,00/)).toBeDefined()
-  })
-
-  it("cambiar el alcance limpia la selección manual", async () => {
-    renderReportsPage()
-
-    fireEvent.click(await screen.findByRole("checkbox", { name: /Notebook/ }))
-
-    expect(screen.getByText("1 gasto seleccionado")).toBeDefined()
-    expect(checkboxOf("Notebook").getAttribute("data-checked")).not.toBeNull()
-
-    fireEvent.click(screen.getByRole("button", { name: "Todo el historial" }))
-
-    // El historial completo trae también el mes anterior, y la selección
-    // anterior no sobrevive al cambio de alcance.
-    expect(await screen.findByText("Netflix")).toBeDefined()
-    expect(screen.getByText("0 gastos seleccionados")).toBeDefined()
-    expect(checkboxOf("Notebook").getAttribute("data-checked")).toBeNull()
   })
 
   it("aplicar un filtro no pierde la selección y avisa de lo que quedó fuera", async () => {
@@ -284,35 +256,7 @@ describe("ReportsPage", () => {
     expect(screen.getByText("0 gastos seleccionados")).toBeDefined()
   })
 
-  it("valida que el rango empiece antes del final y no consulta mientras es inválido", async () => {
-    renderReportsPage()
-
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Rango de meses" })
-    )
-
-    fireEvent.change(screen.getByLabelText("Mes desde"), {
-      target: { value: "6" },
-    })
-    fireEvent.change(screen.getByLabelText("Mes hasta"), {
-      target: { value: "2" },
-    })
-    fireEvent.change(screen.getByLabelText("Año hasta"), {
-      target: { value: String(currentPeriod.year) },
-    })
-    fireEvent.change(screen.getByLabelText("Año desde"), {
-      target: { value: String(currentPeriod.year) },
-    })
-
-    expect(
-      screen.getByText(
-        "El mes inicial del rango tiene que ser anterior o igual al final."
-      )
-    ).toBeDefined()
-    expect(screen.queryByText("Notebook")).toBeNull()
-  })
-
-  it("descarga el PDF de los resultados filtrados, no de todo el alcance", async () => {
+  it("descarga el PDF de los resultados filtrados, no de todo el mes", async () => {
     renderReportsPage()
 
     fireEvent.change(await screen.findByLabelText("Concepto"), {
@@ -440,22 +384,20 @@ describe("ReportsPage", () => {
 
     expect(
       await screen.findByText(
-        "No pudimos cargar los gastos del alcance elegido. Intentá de nuevo en un momento."
+        "No pudimos cargar los gastos del mes. Intentá de nuevo en un momento."
       )
     ).toBeDefined()
     expect(screen.queryByText(/database exploded/)).toBeNull()
   })
 
-  it("avisa cuando el alcance elegido no tiene gastos", async () => {
+  it("avisa cuando el mes actual no tiene gastos", async () => {
     scenario.occurrences = []
     scenario.otherExpenses = []
 
     renderReportsPage()
 
     expect(
-      await screen.findByText(
-        "No hay gastos registrados en el alcance elegido."
-      )
+      await screen.findByText("No hay gastos registrados este mes.")
     ).toBeDefined()
   })
 
@@ -468,7 +410,7 @@ describe("ReportsPage", () => {
 
     expect(
       await screen.findByText(
-        "Ningún gasto del alcance coincide con los filtros aplicados."
+        "Ningún gasto del mes coincide con los filtros aplicados."
       )
     ).toBeDefined()
   })

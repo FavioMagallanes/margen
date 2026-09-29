@@ -21,19 +21,6 @@ export const toggleLineSelection = (
   return next
 }
 
-/** «Seleccionar todo el grupo», limited to what the current filter shows. */
-export const selectVisibleGroup = (
-  selection: ReportSelection,
-  visibleLines: readonly ReportExpenseLine[],
-  group: string
-): ReportSelection =>
-  new Set([
-    ...selection,
-    ...visibleLines
-      .filter((line) => line.group === group)
-      .map((line) => line.id),
-  ])
-
 /** «Seleccionar todos los resultados del filtro actual». */
 export const selectAllVisible = (
   selection: ReportSelection,

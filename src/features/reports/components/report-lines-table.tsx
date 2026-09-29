@@ -42,15 +42,12 @@ export const ReportLinesTable = ({
   onToggleLine,
 }: ReportLinesTableProps) => (
   <Card className="py-0">
-    <Table className="min-w-[760px] text-sm">
+    <Table className="min-w-[680px] text-sm">
       <TableCaption className="sr-only">{caption}</TableCaption>
       <TableHeader>
         <TableRow>
           <TableHead scope="col" className="px-4 text-muted-foreground">
             Exportar
-          </TableHead>
-          <TableHead scope="col" className="px-4 text-muted-foreground">
-            Mes
           </TableHead>
           <TableHead scope="col" className="px-4 text-muted-foreground">
             Concepto
@@ -95,9 +92,6 @@ export const ReportLinesTable = ({
                   checked={selection.has(line.id)}
                   onCheckedChange={() => onToggleLine(line.id)}
                 />
-              </TableCell>
-              <TableCell className="px-4 text-muted-foreground">
-                {formatPeriodLabel(linePeriod(line))}
               </TableCell>
               <TableCell className="px-4">{line.concept}</TableCell>
               <TableCell className="px-4 text-muted-foreground">

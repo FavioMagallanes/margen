@@ -1,4 +1,4 @@
-import { Outlet, useParams } from "react-router"
+import { Outlet, useLocation, useParams } from "react-router"
 
 import { LogoutButton } from "@/features/auth/components/logout-button"
 import { getCurrentPeriod, parsePeriod } from "@/shared/lib/period"
@@ -7,11 +7,17 @@ import { MonthSwitcher } from "./month-switcher"
 import { BottomNav, Sidebar } from "./sidebar"
 import { ThemeToggle } from "./theme-toggle"
 
+const REPORTS_PATH = "/reports"
+
 export const AppShell = () => {
   const { year, month } = useParams()
+  const { pathname } = useLocation()
   const routePeriod = parsePeriod(year, month)
   // Routes without a month (Reportes) still need a period for the month links.
   const navPeriod = routePeriod ?? getCurrentPeriod()
+  // The reports table has many columns and gets cut off inside the regular
+  // reading width, so only that route gets a wider content area.
+  const contentWidth = pathname === REPORTS_PATH ? "max-w-7xl" : "max-w-5xl"
 
   return (
     <div className="min-h-svh bg-background text-foreground">
@@ -37,7 +43,9 @@ export const AppShell = () => {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-5xl px-4 pt-6 pb-24 lg:px-8 lg:pb-10">
+        <main
+          className={`mx-auto w-full ${contentWidth} px-4 pt-6 pb-24 lg:px-8 lg:pb-10`}
+        >
           <Outlet />
         </main>
       </div>

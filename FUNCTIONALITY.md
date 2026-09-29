@@ -322,14 +322,22 @@ Al revisar un resumen se ven los gastos que ya se anotaron y las cuotas continua
 
 ## 13. RF-10 — Consulta, filtros y selección
 
-Se puede consultar el detalle de cada mes y localizar gastos por concepto, tipo de gasto, tarjeta, entidad y moneda original. La selección de períodos permite consultar uno o varios meses.
+Se puede consultar el detalle del mes actual y localizar gastos por concepto, tipo de gasto, tarjeta, entidad y moneda original.
 
 La consulta separa los filtros de visualización de los datos guardados: filtrar no modifica, elimina ni vuelve a imputar ningún gasto.
+
+**Cambio v1.2:** por pedido explícito del usuario se simplificó el
+alcance: ya no se elige un mes, un rango o todo el historial — el
+reporte es siempre del mes calendario actual, sin selector de alcance.
+Además queda **una sola fuente de filtros**: los controles del panel
+de filtros (concepto, tipo de gasto, tarjeta/entidad, moneda) deciden
+qué se ve y qué se exporta; se eliminaron los botones redundantes
+"Seleccionar todo BBVA/Supervielle/…" del panel de selección, que
+duplicaban esas mismas categorías con otro control.
 
 ### Selección para exportación
 
 - Marcar o desmarcar gastos individuales.
-- Seleccionar todos los gastos de un grupo, como BBVA.
 - Seleccionar todos los resultados del filtro actual.
 - Limpiar la selección.
 - Ver cuántos registros están seleccionados y sus subtotales.
@@ -340,9 +348,12 @@ Exportar una selección vacía debe estar deshabilitado o explicar que primero s
 
 ## 14. RF-11 — Descarga en PDF
 
-El usuario puede descargar todos los gastos del alcance elegido, los resultados de un filtro o una selección manual.
+El usuario puede descargar todos los gastos del mes actual, los resultados de un filtro o una selección manual.
 
-El alcance puede ser un mes, un rango de meses o todo el historial registrado. El documento indica cuál se utilizó y si se trata de una exportación parcial.
+**Cambio v1.2:** el alcance ya no admite rango de meses ni "todo el
+historial" — ver el cambio de RF-10. El documento indica siempre el mes
+exportado y si se trata de una exportación parcial (filtro o selección
+que deja afuera líneas del mes).
 
 ### Contenido
 

@@ -5,7 +5,6 @@ import {
   buildReportDocumentData,
   reportFileName,
 } from "../../model/report-document"
-import type { ReportScope } from "../../model/report-scope"
 import { createReportLine } from "../fixtures/report-lines"
 
 const january = { year: 2026, month: 1 }
@@ -28,7 +27,9 @@ const budgets: readonly ReportMonthlyBudget[] = [
   },
 ]
 
-const scope: ReportScope = { kind: "range", start: january, end: february }
+// El documento rotula el mes del reporte; la conversión de cada línea sigue
+// usando la cotización guardada del mes al que pertenece.
+const period = january
 
 const januaryCard = createReportLine({
   id: "ene-1",
@@ -60,15 +61,15 @@ const februaryUsd = createReportLine({
   month: 2,
 })
 
-const scopeLines = [januaryCard, januaryUsd, februaryUsd]
+const periodLines = [januaryCard, januaryUsd, februaryUsd]
 
 const buildData = (
   includedLines: readonly ReturnType<typeof createReportLine>[],
   overrides: { includesSalaryContext?: boolean } = {}
 ) =>
   buildReportDocumentData({
-    scope,
-    scopeLines,
+    period,
+    periodLines,
     includedLines,
     budgets,
     source: "selection",
@@ -77,12 +78,12 @@ const buildData = (
   })
 
 describe("buildReportDocumentData", () => {
-  it("suma solamente las líneas incluidas, nunca todo el alcance", () => {
+  it("suma solamente las líneas incluidas, nunca todo el mes", () => {
     const data = buildData([januaryCard])
 
     expect(data.isPartial).toBe(true)
     expect(data.lines.map(({ line }) => line.id)).toEqual(["ene-1"])
-    // 100.000 ARS de la única línea exportada; el resto del alcance no entra.
+    // 100.000 ARS de la única línea exportada; el resto del mes no entra.
     expect(data.totals.totalArs.toString()).toBe("100000")
   })
 
@@ -102,7 +103,7 @@ describe("buildReportDocumentData", () => {
   })
 
   it("no mezcla el contexto de sueldo de un mes exportado parcialmente", () => {
-    // Enero tiene dos gastos en el alcance y solo se exporta uno.
+    // Enero tiene dos gastos cargados y solo se exporta uno.
     const data = buildData([januaryCard, februaryUsd])
 
     expect(data.salaryContext.map((context) => context.period.month)).toEqual([
@@ -111,7 +112,7 @@ describe("buildReportDocumentData", () => {
   })
 
   it("agrega el contexto del mes cuando la exportación lo cubre entero", () => {
-    const data = buildData(scopeLines)
+    const data = buildData(periodLines)
 
     expect(data.isPartial).toBe(false)
     expect(
@@ -129,7 +130,7 @@ describe("buildReportDocumentData", () => {
   })
 
   it("omite el contexto del mes cuando el usuario no lo pidió", () => {
-    const data = buildData(scopeLines, { includesSalaryContext: false })
+    const data = buildData(periodLines, { includesSalaryContext: false })
 
     expect(data.salaryContext).toEqual([])
   })
@@ -156,8 +157,8 @@ describe("buildReportDocumentData", () => {
     })
 
     const data = buildReportDocumentData({
-      scope,
-      scopeLines: [...scopeLines, estimated, missingAmount],
+      period,
+      periodLines: [...periodLines, estimated, missingAmount],
       includedLines: [februaryUsd, estimated, missingAmount],
       budgets,
       source: "filtered",
@@ -175,8 +176,10 @@ describe("buildReportDocumentData", () => {
 })
 
 describe("reportFileName", () => {
-  it("no deja separadores inválidos en el nombre del archivo", () => {
-    expect(reportFileName(scope)).toBe("margen-reporte-range-2026-1-2026-2.pdf")
-    expect(reportFileName({ kind: "all" })).toBe("margen-reporte-all.pdf")
+  it("nombra el archivo con el mes del reporte", () => {
+    expect(reportFileName(period)).toBe("margen-reporte-2026-01.pdf")
+    expect(reportFileName({ year: 2026, month: 12 })).toBe(
+      "margen-reporte-2026-12.pdf"
+    )
   })
 })

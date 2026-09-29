@@ -28,13 +28,11 @@ const formatSubtotalAmount = (
 type ReportSelectionPanelProps = {
   selectedCount: number
   totals: ReportTotals
-  visibleGroups: readonly string[]
   hiddenSelectedCount: number
   isShowingFullSelection: boolean
   includesSalaryContext: boolean
   isExporting: boolean
   exportError: string | null
-  onSelectGroup: (group: string) => void
   onSelectAllVisible: () => void
   onClearSelection: () => void
   onToggleFullSelection: () => void
@@ -46,13 +44,11 @@ type ReportSelectionPanelProps = {
 export const ReportSelectionPanel = ({
   selectedCount,
   totals,
-  visibleGroups,
   hiddenSelectedCount,
   isShowingFullSelection,
   includesSalaryContext,
   isExporting,
   exportError,
-  onSelectGroup,
   onSelectAllVisible,
   onClearSelection,
   onToggleFullSelection,
@@ -75,16 +71,6 @@ export const ReportSelectionPanel = ({
         <Button type="button" variant="outline" onClick={onSelectAllVisible}>
           Seleccionar todos los resultados del filtro actual
         </Button>
-        {visibleGroups.map((group) => (
-          <Button
-            key={group}
-            type="button"
-            variant="outline"
-            onClick={() => onSelectGroup(group)}
-          >
-            Seleccionar todo {group}
-          </Button>
-        ))}
         <Button type="button" variant="ghost" onClick={onClearSelection}>
           Limpiar selección
         </Button>

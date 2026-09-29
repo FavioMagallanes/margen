@@ -19,8 +19,8 @@ describe("ReportPdfDocument", () => {
     })
 
     const data = buildReportDocumentData({
-      scope: { kind: "month", period: { year: 2026, month: 1 } },
-      scopeLines: [line],
+      period: { year: 2026, month: 1 },
+      periodLines: [line],
       includedLines: [line],
       budgets: [
         {

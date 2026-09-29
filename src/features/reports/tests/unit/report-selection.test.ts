@@ -10,7 +10,6 @@ import {
   selectAllVisible,
   selectedLines,
   selectedLinesOutsideFilter,
-  selectVisibleGroup,
   toggleLineSelection,
 } from "../../model/report-selection"
 import { createReportLine } from "../fixtures/report-lines"
@@ -32,22 +31,6 @@ describe("selección de líneas para exportar", () => {
     expect(sortedIds(withTwo)).toEqual(["1", "3"])
     expect(sortedIds(toggleLineSelection(withTwo, "1"))).toEqual(["3"])
     expect(sortedIds(withOne)).toEqual(["1"])
-  })
-
-  it("selecciona todo un grupo limitado al filtro actual", () => {
-    const visible = applyReportFilters(lines, {
-      ...EMPTY_REPORT_FILTERS,
-      concept: "notebook",
-    })
-
-    const selection = selectVisibleGroup(
-      EMPTY_REPORT_SELECTION,
-      visible,
-      "BBVA"
-    )
-
-    // "Monitor" también es BBVA, pero el filtro vigente no lo muestra.
-    expect(sortedIds(selection)).toEqual(["1"])
   })
 
   it("selecciona todos los resultados del filtro actual conservando lo ya marcado", () => {

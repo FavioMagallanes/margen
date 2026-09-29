@@ -4,7 +4,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/features/auth/use-auth"
-import { getCurrentPeriod, type Period } from "@/shared/lib/period"
+import { formatPeriodLabel, getCurrentPeriod } from "@/shared/lib/period"
 
 import {
   useReportExpenseLinesQuery,
@@ -23,18 +23,11 @@ import {
 } from "../model/report-filters"
 import type { ReportExpenseLine } from "../model/report-line"
 import {
-  formatScopeLabel,
-  isPeriodBefore,
-  type ReportScope,
-  scopeCacheKey,
-} from "../model/report-scope"
-import {
   clearSelection,
   EMPTY_REPORT_SELECTION,
   selectAllVisible,
   selectedLines,
   selectedLinesOutsideFilter,
-  selectVisibleGroup,
   toggleLineSelection,
 } from "../model/report-selection"
 import {
@@ -44,66 +37,26 @@ import {
 } from "../model/report-totals"
 import { ReportFiltersPanel } from "./report-filters-panel"
 import { ReportLinesTable } from "./report-lines-table"
-import {
-  type ReportScopeKind,
-  ReportScopeSelector,
-} from "./report-scope-selector"
 import { ReportSelectionPanel } from "./report-selection-panel"
 
 const LOAD_ERROR_MESSAGE =
-  "No pudimos cargar los gastos del alcance elegido. Intentá de nuevo en un momento."
+  "No pudimos cargar los gastos del mes. Intentá de nuevo en un momento."
 
-const INVALID_RANGE_MESSAGE =
-  "El mes inicial del rango tiene que ser anterior o igual al final."
-
-const EMPTY_SCOPE_MESSAGE = "No hay gastos registrados en el alcance elegido."
+const EMPTY_PERIOD_MESSAGE = "No hay gastos registrados este mes."
 
 const EMPTY_FILTER_MESSAGE =
-  "Ningún gasto del alcance coincide con los filtros aplicados."
+  "Ningún gasto del mes coincide con los filtros aplicados."
 
 const EXPORT_ERROR_MESSAGE =
   "No pudimos generar el PDF. Intentá de nuevo en un momento."
 
-const isCompletePeriod = ({ year, month }: Period): boolean =>
-  Number.isInteger(year) &&
-  Number.isInteger(month) &&
-  year >= 2000 &&
-  month >= 1 &&
-  month <= 12
-
-/** Null while the chosen range is still invalid: nothing is consulted then. */
-const buildScope = (
-  scopeKind: ReportScopeKind,
-  currentPeriod: Period,
-  rangeStart: Period,
-  rangeEnd: Period
-): ReportScope | null => {
-  if (scopeKind === "month") {
-    return { kind: "month", period: currentPeriod }
-  }
-
-  if (scopeKind === "all") {
-    return { kind: "all" }
-  }
-
-  if (!isCompletePeriod(rangeStart) || !isCompletePeriod(rangeEnd)) {
-    return null
-  }
-
-  return isPeriodBefore(rangeEnd, rangeStart)
-    ? null
-    : { kind: "range", start: rangeStart, end: rangeEnd }
-}
-
 export const ReportsPage = () => {
-  const currentPeriod = getCurrentPeriod()
+  // RF-10: el reporte es siempre el mes calendario actual, sin selector.
+  const period = getCurrentPeriod()
 
   const { session } = useAuth()
   const userId = session?.user.id ?? null
 
-  const [scopeKind, setScopeKind] = useState<ReportScopeKind>("month")
-  const [rangeStart, setRangeStart] = useState<Period>(currentPeriod)
-  const [rangeEnd, setRangeEnd] = useState<Period>(currentPeriod)
   const [filters, setFilters] = useState<ReportFilters>(EMPTY_REPORT_FILTERS)
   const [selection, setSelection] = useState(EMPTY_REPORT_SELECTION)
   const [isShowingFullSelection, setIsShowingFullSelection] = useState(false)
@@ -111,49 +64,14 @@ export const ReportsPage = () => {
   const [isExporting, setIsExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
 
-  const scope = buildScope(scopeKind, currentPeriod, rangeStart, rangeEnd)
-  const scopeKey = scope === null ? "invalido" : scopeCacheKey(scope)
-  const [lastScopeKey, setLastScopeKey] = useState(scopeKey)
-
-  // RF-10: choosing another scope starts a new export, so the manual selection
-  // does not survive it (adjusting state during render, not an effect: this
-  // only reacts to state this component already renders with). A filter
-  // change, on the contrary, keeps the selection intact.
-  if (scopeKey !== lastScopeKey) {
-    setLastScopeKey(scopeKey)
-    setSelection(clearSelection())
-    setIsShowingFullSelection(false)
-  }
-
-  // A null scope means the range is still invalid, so no query runs: the
-  // placeholder scope never reaches the server.
-  const queryUserId = scope === null ? null : userId
-  const queriedScope: ReportScope = scope ?? {
-    kind: "month",
-    period: currentPeriod,
-  }
-
-  const linesQuery = useReportExpenseLinesQuery(queryUserId, queriedScope)
-  const budgetsQuery = useReportMonthlyBudgetsQuery(queryUserId, queriedScope)
-
-  const scopeSelector = (
-    <ReportScopeSelector
-      scopeKind={scopeKind}
-      rangeStart={rangeStart}
-      rangeEnd={rangeEnd}
-      scopeLabel={scope === null ? null : formatScopeLabel(scope)}
-      rangeError={scope === null ? INVALID_RANGE_MESSAGE : null}
-      onScopeKindChange={setScopeKind}
-      onRangeStartChange={setRangeStart}
-      onRangeEndChange={setRangeEnd}
-    />
-  )
+  const linesQuery = useReportExpenseLinesQuery(userId, period)
+  const budgetsQuery = useReportMonthlyBudgetsQuery(userId, period)
 
   const header = (
     <div className="flex flex-col gap-1">
       <h1 className="text-lg font-semibold tracking-tight">Reportes</h1>
       <p className="text-xs text-muted-foreground">
-        Consultá los gastos de uno o varios meses y elegí qué exportar.
+        Consultá los gastos cargados este mes y descargalos en PDF.
       </p>
     </div>
   )
@@ -162,19 +80,9 @@ export const ReportsPage = () => {
     return (
       <div className="flex flex-col gap-6">
         {header}
-        {scopeSelector}
         <Alert variant="destructive">
           <AlertDescription>{LOAD_ERROR_MESSAGE}</AlertDescription>
         </Alert>
-      </div>
-    )
-  }
-
-  if (scope === null) {
-    return (
-      <div className="flex flex-col gap-6">
-        {header}
-        {scopeSelector}
       </div>
     )
   }
@@ -183,13 +91,12 @@ export const ReportsPage = () => {
     return (
       <div className="flex flex-col gap-6">
         {header}
-        {scopeSelector}
         <Card>
           <CardContent className="flex flex-col gap-3">
             {/* The skeleton stands for the result table, so keep a text
                 equivalent for assistive technology and for tests. */}
             <p role="status" className="sr-only">
-              Cargando los gastos del alcance…
+              Cargando los gastos del mes…
             </p>
             <Skeleton className="h-3 w-32" />
             <Skeleton className="h-7 w-64" />
@@ -219,7 +126,7 @@ export const ReportsPage = () => {
     : filteredLines
 
   const totals = computeReportTotals(selectedLines(selection, lines), rates)
-  const scopeLabel = formatScopeLabel(scope)
+  const periodLabel = formatPeriodLabel(period)
 
   const exportPdf = (
     source: ReportExportSource,
@@ -234,8 +141,8 @@ export const ReportsPage = () => {
       .then(({ downloadReportPdf }) =>
         downloadReportPdf(
           buildReportDocumentData({
-            scope,
-            scopeLines: lines,
+            period,
+            periodLines: lines,
             includedLines,
             budgets: budgetsQuery.data ?? [],
             source,
@@ -251,7 +158,6 @@ export const ReportsPage = () => {
   return (
     <div className="flex flex-col gap-6">
       {header}
-      {scopeSelector}
 
       <ReportFiltersPanel
         filters={filters}
@@ -262,7 +168,7 @@ export const ReportsPage = () => {
       {lines.length === 0 ? (
         <Card>
           <CardContent>
-            <p className="text-base text-foreground">{EMPTY_SCOPE_MESSAGE}</p>
+            <p className="text-base text-foreground">{EMPTY_PERIOD_MESSAGE}</p>
           </CardContent>
         </Card>
       ) : (
@@ -277,7 +183,7 @@ export const ReportsPage = () => {
             </Card>
           ) : (
             <ReportLinesTable
-              caption={`Gastos de ${scopeLabel}`}
+              caption={`Gastos de ${periodLabel}`}
               lines={visibleLines}
               rates={rates}
               selection={selection}
@@ -290,17 +196,11 @@ export const ReportsPage = () => {
           <ReportSelectionPanel
             selectedCount={selection.size}
             totals={totals}
-            visibleGroups={collectGroupLabels(filteredLines)}
             hiddenSelectedCount={hiddenSelectedLines.length}
             isShowingFullSelection={isShowingFullSelection}
             includesSalaryContext={includesSalaryContext}
             isExporting={isExporting}
             exportError={exportError}
-            onSelectGroup={(group) =>
-              setSelection((current) =>
-                selectVisibleGroup(current, filteredLines, group)
-              )
-            }
             onSelectAllVisible={() =>
               setSelection((current) =>
                 selectAllVisible(current, filteredLines)
@@ -325,7 +225,7 @@ export const ReportsPage = () => {
       {hasActiveFilters(filters) ? (
         <p className="text-xs text-muted-foreground">
           Los filtros solo recortan en pantalla lo que ya se consultó para{" "}
-          {scopeLabel}.
+          {periodLabel}.
         </p>
       ) : null}
     </div>

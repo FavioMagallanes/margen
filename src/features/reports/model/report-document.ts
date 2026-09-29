@@ -8,7 +8,6 @@ import type { Period } from "@/shared/lib/period"
 
 import type { ReportMonthlyBudget } from "../api/report-queries"
 import type { ReportExpenseLine } from "./report-line"
-import { type ReportScope, scopeCacheKey } from "./report-scope"
 import {
   computeReportTotals,
   type ExchangeRateByPeriod,
@@ -43,10 +42,10 @@ export type ReportSalaryContext = {
 }
 
 export type ReportDocumentData = {
-  scope: ReportScope
+  period: Period
   generatedAt: Date
   source: ReportExportSource
-  /** True when the export leaves out lines the chosen scope does contain. */
+  /** True when the export leaves out lines the reported month does contain. */
   isPartial: boolean
   lines: ReportDocumentLine[]
   totals: ReportTotals
@@ -54,9 +53,9 @@ export type ReportDocumentData = {
 }
 
 export type ReportDocumentInput = {
-  scope: ReportScope
-  /** Everything the chosen scope holds, needed to detect a partial export. */
-  scopeLines: readonly ReportExpenseLine[]
+  period: Period
+  /** Everything the reported month holds, needed to detect a partial export. */
+  periodLines: readonly ReportExpenseLine[]
   /** Exactly the lines this export includes. */
   includedLines: readonly ReportExpenseLine[]
   budgets: readonly ReportMonthlyBudget[]
@@ -113,7 +112,7 @@ const buildSalaryContext = (
 
   return periodsOf(input.includedLines)
     .filter((period) => {
-      const monthLines = linesOfPeriod(input.scopeLines, period)
+      const monthLines = linesOfPeriod(input.periodLines, period)
 
       return (
         monthLines.length > 0 &&
@@ -121,7 +120,7 @@ const buildSalaryContext = (
       )
     })
     .map((period) => {
-      const monthLines = linesOfPeriod(input.scopeLines, period)
+      const monthLines = linesOfPeriod(input.periodLines, period)
       const rate = rates.get(exchangeRateKey(period)) ?? null
       const { totalKnownArs, isComplete } = computeExpenseTotal(
         monthLines,
@@ -165,20 +164,19 @@ export const buildReportDocumentData = (
   }))
 
   // Only the included lines are added up: a partial export never shows the
-  // total of the whole scope.
+  // total of the whole month.
   const totals = computeReportTotals(input.includedLines, rates)
 
   return {
-    scope: input.scope,
+    period: input.period,
     generatedAt: input.generatedAt,
     source: input.source,
-    isPartial: input.includedLines.length < input.scopeLines.length,
+    isPartial: input.includedLines.length < input.periodLines.length,
     lines,
     totals,
     salaryContext: buildSalaryContext(input, rates),
   }
 }
 
-/** Colons would be an invalid file name on Windows, so the key is flattened. */
-export const reportFileName = (scope: ReportScope): string =>
-  `margen-reporte-${scopeCacheKey(scope).replaceAll(":", "-")}.pdf`
+export const reportFileName = (period: Period): string =>
+  `margen-reporte-${period.year}-${String(period.month).padStart(2, "0")}.pdf`

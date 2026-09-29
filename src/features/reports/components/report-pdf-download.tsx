@@ -18,7 +18,7 @@ export const downloadReportPdf = async (
   const link = document.createElement("a")
 
   link.href = url
-  link.download = reportFileName(data.scope)
+  link.download = reportFileName(data.period)
   document.body.append(link)
   link.click()
   link.remove()
