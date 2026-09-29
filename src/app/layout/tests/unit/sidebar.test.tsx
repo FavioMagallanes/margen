@@ -5,13 +5,13 @@ import { afterEach, describe, expect, it } from "vitest"
 
 import { Sidebar } from "@/app/layout/sidebar"
 
-const NAV_LABELS = ["Presupuesto", "Recurrentes", "Próximos meses", "Reportes"]
+const NAV_LABELS = ["Presupuesto", "Próximos meses", "Reportes"]
 
 describe("Sidebar", () => {
   // Vitest runs without globals, so Testing Library's auto cleanup is not registered.
   afterEach(cleanup)
 
-  it("renderiza las 4 secciones de navegación", () => {
+  it("renderiza las 3 secciones de navegación", () => {
     render(
       <MemoryRouter initialEntries={["/months/2026/9"]}>
         <Sidebar period={{ year: 2026, month: 9 }} />
@@ -34,10 +34,6 @@ describe("Sidebar", () => {
       </MemoryRouter>
     )
 
-    expect(screen.getByRole("link", { name: "Recurrentes" })).toHaveProperty(
-      "pathname",
-      "/months/2026/9/recurring"
-    )
     expect(screen.getByRole("link", { name: "Reportes" })).toHaveProperty(
       "pathname",
       "/reports"

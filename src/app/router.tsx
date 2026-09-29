@@ -5,7 +5,6 @@ import { GuestOnlyRoute } from "@/features/auth/components/guest-only-route"
 import { LoginPage } from "@/features/auth/components/login-page"
 import { RequireAuth } from "@/features/auth/components/require-auth"
 import { MonthlyBudgetPage } from "@/features/monthly-budget/monthly-budget-page"
-import { RecurringExpensesPage } from "@/features/recurring-expenses/components/recurring-expenses-page"
 import { ReportsPage } from "@/features/reports/components/reports-page"
 import { UpcomingExpensesPage } from "@/features/upcoming-expenses/components/upcoming-expenses-page"
 import { getCurrentPeriod } from "@/shared/lib/period"
@@ -35,11 +34,9 @@ export const router = createBrowserRouter([
         path: "/months/:year/:month",
         element: <AppShell />,
         children: [
+          // Loading, editing and deleting every kind of expense happens in the
+          // budget itself, so the month has no other page of its own.
           { index: true, element: <MonthlyBudgetPage /> },
-          {
-            path: "recurring",
-            element: <RecurringExpensesPage />,
-          },
           { path: "upcoming", element: <UpcomingExpensesPage /> },
         ],
       },

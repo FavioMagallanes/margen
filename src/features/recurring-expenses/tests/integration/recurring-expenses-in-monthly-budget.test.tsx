@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { AuthProvider } from "@/features/auth/auth-provider"
 import { createFakeSession } from "@/features/auth/tests/fixtures/session"
-import { RecurringExpensesPage } from "@/features/recurring-expenses/components/recurring-expenses-page"
+import { MonthlyBudgetPage } from "@/features/monthly-budget/monthly-budget-page"
 import type { Period } from "@/shared/lib/period"
 
 type StoredPlan = {
@@ -72,6 +72,16 @@ const { authMock, fromMock, rpcMock, deleteMock, scenario } = vi.hoisted(() => {
         return { data: null, error: scenario.loadError }
       }
 
+      // The budget reads its salary and its one-off expenses elsewhere; this
+      // suite only cares about the recurring expenses of the month.
+      if (table === "monthly_budgets") {
+        return { data: null, error: null }
+      }
+
+      if (table === "other_expenses") {
+        return { data: [], error: null }
+      }
+
       if (table === "spending_plans") {
         const plans = scenario.plans
           .filter((plan) => plan.kind === filters.kind)
@@ -86,20 +96,26 @@ const { authMock, fromMock, rpcMock, deleteMock, scenario } = vi.hoisted(() => {
       }
 
       // The real query filters the embedded plan with "!inner"; the mock
-      // applies the same filter so a missing one would show other kinds.
+      // applies the same filter so a missing one would show other kinds. The
+      // month summary reads the same table without that filter, so every kind
+      // reaches it.
+      const kindFilter = filters["spending_plans.kind"]
       const rows = scenario.occurrences
         .filter((occurrence) => {
           const plan = planOf(occurrence.plan_id)
 
           return (
             plan !== undefined &&
-            plan.kind === filters["spending_plans.kind"] &&
+            (kindFilter === undefined || plan.kind === kindFilter) &&
+            (filters.is_skipped === undefined ||
+              occurrence.is_skipped === filters.is_skipped) &&
             occurrence.year === filters.year &&
             occurrence.month === filters.month
           )
         })
         .map((occurrence) => ({
           ...occurrence,
+          installment_number: null,
           spending_plans: planOf(occurrence.plan_id),
         }))
 
@@ -218,7 +234,7 @@ const notebookMarch: StoredOccurrence = {
   is_skipped: false,
 }
 
-const renderRecurringPage = () => {
+const renderBudgetPage = () => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
@@ -228,13 +244,13 @@ const renderRecurringPage = () => {
       <AuthProvider>
         <MemoryRouter
           initialEntries={[
-            `/months/${VIEWED_PERIOD.year}/${VIEWED_PERIOD.month}/recurring`,
+            `/months/${VIEWED_PERIOD.year}/${VIEWED_PERIOD.month}`,
           ]}
         >
           <Routes>
             <Route
-              path="/months/:year/:month/recurring"
-              element={<RecurringExpensesPage />}
+              path="/months/:year/:month"
+              element={<MonthlyBudgetPage />}
             />
           </Routes>
         </MemoryRouter>
@@ -257,13 +273,26 @@ const selectOption = (fieldLabel: string, optionLabel: string) => {
   fireEvent.click(option)
 }
 
-const openCreateForm = async () => {
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Agregar recurrente" })
-  )
+/**
+ * Every load starts at the budget's single entry point: the type of expense is
+ * chosen there, and only then this feature's form opens.
+ */
+const openAddExpense = async (optionLabel: string) => {
+  fireEvent.click(await screen.findByRole("button", { name: "Agregar gasto" }))
+  fireEvent.click(await screen.findByRole("button", { name: optionLabel }))
 }
 
-describe("RecurringExpensesPage", () => {
+const openCreateForm = async () => {
+  await openAddExpense("Gasto recurrente")
+
+  // The form waits for the recurring expenses of the month (RF-09).
+  await screen.findByLabelText("Concepto")
+}
+
+const openGenerationForm = () =>
+  openAddExpense("Generar recurrentes de este mes")
+
+describe("recurrentes desde Presupuesto", () => {
   // Vitest runs without globals, so Testing Library's auto cleanup is not registered.
   afterEach(cleanup)
 
@@ -287,28 +316,27 @@ describe("RecurringExpensesPage", () => {
   it("muestra el mes vacío sin generar nada por abrir la página", async () => {
     scenario.plans = [internetPlan]
 
-    renderRecurringPage()
+    renderBudgetPage()
 
     expect(
-      await screen.findByText("Todavía no generaste recurrentes para este mes.")
+      await screen.findByText("Todavía no cargaste gastos para este mes.")
     ).toBeDefined()
     // Abrir el mes nunca escribe: la generación es siempre explícita.
     expect(rpcMock).not.toHaveBeenCalled()
   })
 
-  it("lista los recurrentes del mes y deja fuera otros planes", async () => {
+  it("lista el recurrente del mes con su importe", async () => {
     scenario.plans = [internetPlan, cardPlan]
     scenario.occurrences = [internetMarch, notebookMarch]
 
-    renderRecurringPage()
+    renderBudgetPage()
 
     expect(await screen.findByText("Internet")).toBeDefined()
-    expect(screen.queryByText("Notebook")).toBeNull()
     expect(rowOf("Internet").getByText(/45\.000,00/)).toBeDefined()
   })
 
   it("crea un recurrente de importe fijo, mensual hasta detener", async () => {
-    renderRecurringPage()
+    renderBudgetPage()
     await openCreateForm()
 
     fireEvent.change(screen.getByLabelText("Concepto"), {
@@ -334,7 +362,7 @@ describe("RecurringExpensesPage", () => {
   })
 
   it("crea un recurrente de importe variable con una cantidad fija de meses", async () => {
-    renderRecurringPage()
+    renderBudgetPage()
     await openCreateForm()
 
     fireEvent.change(screen.getByLabelText("Concepto"), {
@@ -365,7 +393,7 @@ describe("RecurringExpensesPage", () => {
   })
 
   it("crea un recurrente de una sola vez como un plan de un mes", async () => {
-    renderRecurringPage()
+    renderBudgetPage()
     await openCreateForm()
 
     fireEvent.change(screen.getByLabelText("Concepto"), {
@@ -387,7 +415,7 @@ describe("RecurringExpensesPage", () => {
   })
 
   it("no guarda un recurrente sin importe ni con una cantidad de meses inválida", async () => {
-    renderRecurringPage()
+    renderBudgetPage()
     await openCreateForm()
 
     fireEvent.change(screen.getByLabelText("Concepto"), {
@@ -413,13 +441,9 @@ describe("RecurringExpensesPage", () => {
     scenario.plans = [internetPlan, electricityPlan]
     scenario.occurrences = [electricityFebruary]
 
-    renderRecurringPage()
+    renderBudgetPage()
 
-    fireEvent.click(
-      await screen.findByRole("button", {
-        name: "Generar recurrentes de este mes",
-      })
-    )
+    await openGenerationForm()
 
     // El fijo se prellena con su importe; el variable, con el último importe
     // real conocido y marcado como estimado.
@@ -468,7 +492,9 @@ describe("RecurringExpensesPage", () => {
     ]
     scenario.occurrences = [electricityFebruary]
 
-    renderRecurringPage()
+    renderBudgetPage()
+
+    await openGenerationForm()
 
     expect(
       await screen.findByText(
@@ -476,17 +502,15 @@ describe("RecurringExpensesPage", () => {
       )
     ).toBeDefined()
     expect(
-      screen
-        .getByRole("button", { name: "Generar recurrentes de este mes" })
-        .hasAttribute("disabled")
-    ).toBe(true)
+      screen.queryByRole("button", { name: "Generar recurrentes" })
+    ).toBeNull()
   })
 
   it("corrige el importe de este mes puntual sin tocar el plan", async () => {
     scenario.plans = [internetPlan]
     scenario.occurrences = [internetMarch]
 
-    renderRecurringPage()
+    renderBudgetPage()
 
     fireEvent.click(
       await within(
@@ -514,7 +538,7 @@ describe("RecurringExpensesPage", () => {
     scenario.plans = [internetPlan]
     scenario.occurrences = [internetMarch]
 
-    renderRecurringPage()
+    renderBudgetPage()
 
     fireEvent.click(
       await within(
@@ -546,7 +570,7 @@ describe("RecurringExpensesPage", () => {
     scenario.plans = [internetPlan]
     scenario.occurrences = [internetMarch]
 
-    renderRecurringPage()
+    renderBudgetPage()
 
     fireEvent.click(
       await within(
@@ -568,11 +592,31 @@ describe("RecurringExpensesPage", () => {
     })
   })
 
+  it("muestra un recurrente ya detenido como tal y no deja volver a detenerlo", async () => {
+    scenario.plans = [
+      {
+        ...internetPlan,
+        stopped_from_year: VIEWED_PERIOD.year,
+        stopped_from_month: VIEWED_PERIOD.month,
+      },
+    ]
+    scenario.occurrences = [internetMarch]
+
+    renderBudgetPage()
+
+    const row = await screen.findByRole("row", { name: /Internet/ })
+
+    expect(await within(row).findByText("Detenido")).toBeDefined()
+    expect(
+      await within(row).findByRole("button", { name: "Detener" })
+    ).toHaveProperty("disabled", true)
+  })
+
   it("elimina el recurrente completo solo después de confirmar", async () => {
     scenario.plans = [internetPlan]
     scenario.occurrences = [internetMarch]
 
-    renderRecurringPage()
+    renderBudgetPage()
 
     fireEvent.click(
       await within(
@@ -598,34 +642,31 @@ describe("RecurringExpensesPage", () => {
       { ...internetMarch, amount: null, is_skipped: true },
     ]
 
-    renderRecurringPage()
+    renderBudgetPage()
 
-    const row = within(await screen.findByRole("row", { name: /Internet/ }))
-
-    expect(row.getByText("Omitido este mes")).toBeDefined()
-    expect(row.queryByText("Sin dato")).toBeNull()
+    // RF-05: un mes omitido no es una línea esperando importe, así que no
+    // llega al resumen del mes ni ofrece acciones sobre ese importe.
     expect(
-      row
-        .getByRole("button", { name: "Corregir importe" })
-        .hasAttribute("disabled")
-    ).toBe(true)
+      await screen.findByText("Todavía no cargaste gastos para este mes.")
+    ).toBeDefined()
+    expect(screen.queryByRole("row", { name: /Internet/ })).toBeNull()
   })
 
   it("muestra un error genérico sin filtrar el detalle de Supabase", async () => {
     scenario.loadError = { message: "database exploded" }
 
-    renderRecurringPage()
+    renderBudgetPage()
 
     expect(
       await screen.findByText(
-        "No pudimos cargar los recurrentes del mes. Intentá de nuevo en un momento."
+        "No pudimos cargar el presupuesto del mes. Intentá de nuevo en un momento."
       )
     ).toBeDefined()
     expect(screen.queryByText(/database exploded/)).toBeNull()
   })
 })
 
-describe("RecurringExpensesPage: carga rápida (RF-09)", () => {
+describe("recurrentes desde Presupuesto: carga rápida (RF-09)", () => {
   afterEach(cleanup)
 
   beforeEach(() => {
@@ -646,7 +687,7 @@ describe("RecurringExpensesPage: carga rápida (RF-09)", () => {
   })
 
   it("«Guardar y agregar otro» guarda y deja el formulario abierto y en blanco", async () => {
-    renderRecurringPage()
+    renderBudgetPage()
     await openCreateForm()
 
     fireEvent.change(screen.getByLabelText("Concepto"), {
@@ -681,7 +722,7 @@ describe("RecurringExpensesPage: carga rápida (RF-09)", () => {
     scenario.plans = [internetPlan]
     scenario.occurrences = [internetMarch]
 
-    renderRecurringPage()
+    renderBudgetPage()
     await openCreateForm()
 
     // The same recurring expense already generated this month, retyped with

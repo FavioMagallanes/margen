@@ -3,7 +3,6 @@ import { NavLink } from "react-router"
 import {
   Calendar03FreeIcons,
   Invoice01FreeIcons,
-  RepeatFreeIcons,
   Wallet01FreeIcons,
 } from "@hugeicons/core-free-icons"
 import type { IconSvgElement } from "@hugeicons/react"
@@ -26,12 +25,6 @@ const NAV_ITEMS: NavItem[] = [
     icon: Wallet01FreeIcons,
     buildPath: ({ year, month }) => `/months/${year}/${month}`,
     end: true,
-  },
-  {
-    label: "Recurrentes",
-    icon: RepeatFreeIcons,
-    buildPath: ({ year, month }) => `/months/${year}/${month}/recurring`,
-    end: false,
   },
   {
     label: "Próximos meses",
