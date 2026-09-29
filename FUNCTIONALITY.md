@@ -391,7 +391,7 @@ La descarga no requiere guardar copias del PDF dentro de la app. El PDF es un re
 
 ## 15. RF-12 — Consulta de próximos meses
 
-El usuario puede ver cuánto tiene ya comprometido en los próximos meses en compras con tarjeta, y cuándo terminan los planes de cuotas de más de un pago.
+El usuario puede ver cuánto tiene ya comprometido en los próximos meses en cuotas de tarjeta pendientes (de más de un pago), y cuándo terminan esos planes.
 
 Se distinguen gastos conocidos, importes estimados, conversiones de referencia e información faltante. No se supone que el próximo sueldo será igual al actual.
 
@@ -403,12 +403,16 @@ Esta vista no pronostica cotizaciones, ingresos ni intereses; organiza compromis
 de esta vista a compras con tarjeta únicamente — préstamos y gastos
 recurrentes ya no aparecen ni en el comprometido del mes ni en "planes
 que terminan" (siguen viéndose en sus propias secciones y en
-Reportes). Una compra con tarjeta de una sola cuota tampoco entra en
-"planes que terminan": esa lista es sólo para cuotas todavía
-pendientes, de más de un pago. Se corrigió además un cálculo erróneo
-del mes de fin: cuando la primera cuota cargada de una compra no es la
-número 1 (por ejemplo, se empezó a registrar desde la última cuota),
-el fin ahora se calcula a partir del número de cuota real de esa
+Reportes). Una compra con tarjeta de una sola cuota (pago único) queda
+afuera de **toda** esta vista, no sólo de "planes que terminan": ni el
+comprometido del mes, ni el disponible estimado, ni la tabla de gastos
+la incluyen, aunque se haya cargado en el mes que se está viendo — un
+pago único no tiene ninguna cuota pendiente que mostrar acá (sí sigue
+viéndose con normalidad en el resumen del mes y en Reportes). Se
+corrigió además un cálculo erróneo del mes de fin: cuando la primera
+cuota cargada de una compra no es la número 1 (por ejemplo, se empezó
+a registrar desde la última cuota), el fin ahora se calcula a partir
+del número de cuota real de esa
 ocurrencia, no asumiendo siempre que la primera cargada es la cuota 1.
 
 ## 16. RF-13 — Acceso privado y uso en dos dispositivos

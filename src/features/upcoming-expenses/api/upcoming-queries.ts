@@ -62,6 +62,9 @@ const fetchGeneratedLines = async ({
     .eq("year", year)
     .eq("month", month)
     .eq("spending_plans.kind", CARD_PURCHASE_KIND)
+    // A single payment has no pending installments, so this view ignores it
+    // even on the month where it was loaded.
+    .gt("spending_plans.total_installments", 1)
     // RF-05: a skipped month is an explicit absence, not a line waiting for
     // its amount, so nothing is committed by it.
     .eq("is_skipped", false)

@@ -40,9 +40,16 @@ const { authMock, fromMock, scenario } = vi.hoisted(() => {
     row: Record<string, unknown>,
     column: string
   ): unknown => {
-    // The kind filter of the occurrences query lives on the embedded plan.
-    if (column === "spending_plans.kind") {
-      return (row.spending_plans as { kind?: string } | undefined)?.kind
+    // The kind and installment filters of the occurrences query live on the
+    // embedded plan.
+    const embeddedColumn = column.startsWith("spending_plans.")
+      ? column.slice("spending_plans.".length)
+      : null
+
+    if (embeddedColumn !== null) {
+      return (row.spending_plans as Record<string, unknown> | undefined)?.[
+        embeddedColumn
+      ]
     }
 
     return row[column]
@@ -374,7 +381,8 @@ describe("UpcomingExpensesPage", () => {
     expect(row?.textContent).toContain("Mayo de 2026")
   })
 
-  it("no lista entre los planes que terminan una compra de una sola cuota ni los planes de otro tipo", async () => {
+  it("deja la compra de una sola cuota fuera del mes y del total comprometido", async () => {
+    scenario.budget = { salary_ars: 1_000_000, exchange_rate_value: 1600 }
     scenario.occurrences = [
       createOccurrence({
         id: "pago-unico",
@@ -383,7 +391,25 @@ describe("UpcomingExpensesPage", () => {
         installmentNumber: 1,
         totalInstallments: 1,
       }),
+      createOccurrence({
+        id: "en-cuotas",
+        concept: "Notebook",
+        amount: 45_000,
+        installmentNumber: 3,
+        totalInstallments: 6,
+      }),
     ]
+
+    renderUpcomingPage()
+
+    const notebookRow = await screen.findByRole("row", { name: /Notebook/ })
+    expect(screen.queryByText("Zapatillas")).toBeNull()
+    expect(within(notebookRow).getByText("$ 45.000,00")).toBeDefined()
+    // Solo la cuota de 45.000 compromete el mes: 1.000.000 - 45.000.
+    expect(screen.getByText("$ 955.000,00")).toBeDefined()
+  })
+
+  it("no lista entre los planes que terminan una compra de una sola cuota ni los planes de otro tipo", async () => {
     scenario.plans = [
       createPlan({
         id: "pago-unico",
@@ -402,10 +428,8 @@ describe("UpcomingExpensesPage", () => {
 
     renderUpcomingPage()
 
-    // El pago único sigue comprometiendo el mes, pero no es un plan en curso.
-    expect(await screen.findByText("Zapatillas")).toBeDefined()
     expect(
-      screen.getByText(
+      await screen.findByText(
         "No hay planes de cuotas en curso que terminen desde este mes en adelante."
       )
     ).toBeDefined()
