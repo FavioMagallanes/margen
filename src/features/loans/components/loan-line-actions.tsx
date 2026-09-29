@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useAuth } from "@/features/auth/use-auth"
+import { parseAmountInputValue } from "@/shared/lib/amount-input"
 import type { Period } from "@/shared/lib/period"
 
 import {
@@ -36,6 +37,7 @@ import {
   usePendingLoanInstallmentsQuery,
 } from "../api/loan-queries"
 import {
+  formatLoanAmountInput,
   type LoanEditFormValues,
   parsePositiveInteger,
 } from "../model/loan-form"
@@ -78,6 +80,8 @@ const buildEditDefaults = (loan: EditableLoan): LoanEditFormValues => ({
   concept: loan.row.conceptText,
   entity: loan.row.entity,
   totalInstallments: String(loan.totalInstallments),
+  quotaAmount:
+    loan.row.amount === null ? "" : formatLoanAmountInput(loan.row.amount),
   editedInstallment: String(loan.installmentNumber),
 })
 
@@ -120,6 +124,7 @@ const LoanEditDialog = ({ period, planId, onClose }: LoanDialogProps) => {
 
   const loansQuery = useLoansQuery(userId, period)
   const updateLoan = useUpdateLoanMutation(userId)
+  const saveInstallmentAmount = useSetLoanInstallmentAmountsMutation(userId)
 
   const row = (loansQuery.data ?? []).find((loan) => loan.planId === planId)
   const editable = row === undefined ? null : toEditableLoan(row)
@@ -131,7 +136,23 @@ const LoanEditDialog = ({ period, planId, onClose }: LoanDialogProps) => {
       return
     }
 
-    updateLoan.mutate(input, { onSuccess: onClose })
+    // An empty field means "keep the saved amount", so nothing is sent.
+    const amount = parseAmountInputValue(values.quotaAmount)
+
+    updateLoan.mutate(input, {
+      onSuccess: () => {
+        if (amount === null) {
+          onClose()
+
+          return
+        }
+
+        saveInstallmentAmount.mutate(
+          [{ occurrenceId: loan.row.occurrenceId, amount: amount.toNumber() }],
+          { onSuccess: onClose }
+        )
+      },
+    })
   }
 
   return (
@@ -166,8 +187,14 @@ const LoanEditDialog = ({ period, planId, onClose }: LoanDialogProps) => {
           <LoanEditForm
             defaultValues={buildEditDefaults(editable)}
             editedPeriod={period}
-            isSaving={updateLoan.isLoading}
-            errorMessage={updateLoan.isError ? UPDATE_ERROR_MESSAGE : null}
+            isSaving={updateLoan.isLoading || saveInstallmentAmount.isLoading}
+            errorMessage={
+              updateLoan.isError
+                ? UPDATE_ERROR_MESSAGE
+                : saveInstallmentAmount.isError
+                  ? SAVE_AMOUNTS_ERROR_MESSAGE
+                  : null
+            }
             onSubmit={(values) => handleUpdate(values, editable)}
             onCancel={onClose}
           />

@@ -428,6 +428,58 @@ describe("préstamos desde Presupuesto", () => {
     )
   })
 
+  it("edita el importe de la cuota abierta sin tocar las demás", async () => {
+    setOccurrences([currentInstallment, nextInstallment])
+
+    renderBudgetPage()
+
+    fireEvent.click(
+      await within(
+        await screen.findByRole("row", { name: /Préstamo personal/ })
+      ).findByRole("button", { name: "Editar" })
+    )
+
+    const amountField = await screen.findByLabelText("Importe de esta cuota")
+
+    expect((amountField as HTMLInputElement).value).toBe("120.000,00")
+
+    fireEvent.change(amountField, { target: { value: "135000" } })
+    fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }))
+
+    await waitFor(() => {
+      expect(rpcMock).toHaveBeenCalledWith("set_loan_installment_amounts", {
+        p_items: [{ occurrence_id: "occurrence-1", amount: 135_000 }],
+      })
+    })
+    expect(rpcMock).toHaveBeenCalledWith("update_loan", expect.anything())
+  })
+
+  it("no guarda ningún importe si el campo queda vacío", async () => {
+    setOccurrences([currentInstallmentMissingAmount])
+
+    renderBudgetPage()
+
+    fireEvent.click(
+      await within(
+        await screen.findByRole("row", { name: /Préstamo personal/ })
+      ).findByRole("button", { name: "Editar" })
+    )
+
+    const amountField = await screen.findByLabelText("Importe de esta cuota")
+
+    expect((amountField as HTMLInputElement).value).toBe("")
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }))
+
+    await waitFor(() => {
+      expect(rpcMock).toHaveBeenCalledWith("update_loan", expect.anything())
+    })
+    expect(rpcMock).not.toHaveBeenCalledWith(
+      "set_loan_installment_amounts",
+      expect.anything()
+    )
+  })
+
   it("no deja reducir el total por debajo de la cuota que se está editando", async () => {
     setOccurrences([currentInstallment])
 

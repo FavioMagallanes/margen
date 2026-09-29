@@ -18,6 +18,7 @@ const baseEditValues = {
   concept: "Préstamo personal",
   entity: "Mercado Pago",
   totalInstallments: "12",
+  quotaAmount: "",
   editedInstallment: "4",
 }
 
@@ -108,6 +109,22 @@ describe("loanEditSchema", () => {
     })
 
     expect(result.success).toBe(true)
+  })
+})
+
+describe("loanEditSchema quotaAmount", () => {
+  it("acepta el importe vacío y un importe mayor a cero", () => {
+    expect(loanEditSchema.safeParse(baseEditValues).success).toBe(true)
+    expect(
+      loanEditSchema.safeParse({ ...baseEditValues, quotaAmount: "95.000,50" })
+        .success
+    ).toBe(true)
+  })
+
+  it("rechaza un importe en cero", () => {
+    expect(
+      loanEditSchema.safeParse({ ...baseEditValues, quotaAmount: "0" }).success
+    ).toBe(false)
   })
 })
 

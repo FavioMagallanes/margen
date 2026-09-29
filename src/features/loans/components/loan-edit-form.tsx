@@ -1,9 +1,10 @@
-import { useForm } from "react-hook-form"
+import { Controller, useForm } from "react-hook-form"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { formatPeriodLabel, type Period } from "@/shared/lib/period"
+import { AmountInput } from "@/shared/ui/amount-input"
 
 import {
   LOAN_ENTITY_SUGGESTIONS,
@@ -34,6 +35,7 @@ export const LoanEditForm = ({
 }: LoanEditFormProps) => {
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors },
   } = useForm<LoanEditFormValues>({
@@ -85,6 +87,32 @@ export const LoanEditForm = ({
             {...register("totalInstallments")}
           />
           <FieldError message={errors.totalInstallments?.message} />
+        </Field>
+
+        <Field htmlFor="loan-edit-quota-amount" label="Importe de esta cuota">
+          <Controller
+            control={control}
+            name="quotaAmount"
+            render={({ field }) => (
+              <AmountInput
+                id="loan-edit-quota-amount"
+                autoComplete="off"
+                className="font-mono"
+                aria-invalid={errors.quotaAmount !== undefined}
+                name={field.name}
+                value={field.value}
+                onBlur={field.onBlur}
+                onValueChange={(formattedValue) =>
+                  field.onChange(formattedValue)
+                }
+              />
+            )}
+          />
+          <p className="text-xs text-muted-foreground">
+            Si lo dejás vacío, no se toca el importe ya cargado. Solo cambia
+            esta cuota, no las demás del préstamo.
+          </p>
+          <FieldError message={errors.quotaAmount?.message} />
         </Field>
       </div>
 

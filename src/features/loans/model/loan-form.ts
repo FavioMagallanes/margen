@@ -104,6 +104,8 @@ const loanEditFields = z.object({
   concept: z.string().trim().min(1, CONCEPT_MESSAGE),
   entity: z.string().trim().min(1, ENTITY_MESSAGE),
   totalInstallments: z.string(),
+  /** Empty means "leave the amount already saved for this installment". */
+  quotaAmount: z.string(),
   /**
    * The installment the user opened the edit from. It is not editable, but the
    * new total has to stay compatible with it (P-04: the edit applies from that
@@ -117,6 +119,14 @@ export type LoanEditFormValues = z.infer<typeof loanEditFields>
 export const loanEditSchema = loanEditFields.superRefine((values, ctx) => {
   const totalInstallments = parsePositiveInteger(values.totalInstallments)
   const editedInstallment = parsePositiveInteger(values.editedInstallment)
+
+  if (values.quotaAmount.trim() !== "" && !isLoanAmount(values.quotaAmount)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["quotaAmount"],
+      message: QUOTA_AMOUNT_MESSAGE,
+    })
+  }
 
   if (totalInstallments === null) {
     ctx.addIssue({
@@ -174,6 +184,7 @@ const LOAN_EDIT_FIELDS = [
   "concept",
   "entity",
   "totalInstallments",
+  "quotaAmount",
   "editedInstallment",
 ] as const
 
