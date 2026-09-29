@@ -11,9 +11,6 @@ import { REPORT_CURRENCY_LABELS } from "../model/report-line"
 import type { ReportTotals } from "../model/report-totals"
 import { formatUsd } from "./report-amounts"
 
-const EXPORT_SOON_MESSAGE =
-  "Próximamente: la descarga del PDF todavía no está disponible."
-
 const EMPTY_SELECTION_MESSAGE =
   "Seleccioná al menos un gasto para exportar la selección."
 
@@ -35,11 +32,15 @@ type ReportSelectionPanelProps = {
   hiddenSelectedCount: number
   isShowingFullSelection: boolean
   includesSalaryContext: boolean
+  isExporting: boolean
+  exportError: string | null
   onSelectGroup: (group: string) => void
   onSelectAllVisible: () => void
   onClearSelection: () => void
   onToggleFullSelection: () => void
   onIncludesSalaryContextChange: (includesSalaryContext: boolean) => void
+  onExportFiltered: () => void
+  onExportSelection: () => void
 }
 
 export const ReportSelectionPanel = ({
@@ -49,11 +50,15 @@ export const ReportSelectionPanel = ({
   hiddenSelectedCount,
   isShowingFullSelection,
   includesSalaryContext,
+  isExporting,
+  exportError,
   onSelectGroup,
   onSelectAllVisible,
   onClearSelection,
   onToggleFullSelection,
   onIncludesSalaryContextChange,
+  onExportFiltered,
+  onExportSelection,
 }: ReportSelectionPanelProps) => (
   <Card>
     <CardContent className="flex flex-col gap-4">
@@ -161,21 +166,37 @@ export const ReportSelectionPanel = ({
 
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap gap-2">
-          {/* RF-11: both exports already have their place; the document itself
-              arrives with the PDF work. */}
-          <Button type="button" disabled>
+          <Button
+            type="button"
+            disabled={isExporting}
+            onClick={onExportFiltered}
+          >
             Descargar PDF de los resultados filtrados
           </Button>
-          <Button type="button" variant="outline" disabled>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isExporting || selectedCount === 0}
+            onClick={onExportSelection}
+          >
             Descargar PDF de la selección
           </Button>
         </div>
-        <p className="text-sm text-muted-foreground">{EXPORT_SOON_MESSAGE}</p>
+        {isExporting ? (
+          <p role="status" className="text-sm text-muted-foreground">
+            Generando el PDF…
+          </p>
+        ) : null}
         {selectedCount === 0 ? (
           <p className="text-sm text-muted-foreground">
             {EMPTY_SELECTION_MESSAGE}
           </p>
         ) : null}
+        {exportError === null ? null : (
+          <Alert variant="destructive">
+            <AlertDescription>{exportError}</AlertDescription>
+          </Alert>
+        )}
       </div>
     </CardContent>
   </Card>

@@ -11,12 +11,17 @@ import {
   useReportMonthlyBudgetsQuery,
 } from "../api/report-queries"
 import {
+  buildReportDocumentData,
+  type ReportExportSource,
+} from "../model/report-document"
+import {
   applyReportFilters,
   collectGroupLabels,
   EMPTY_REPORT_FILTERS,
   hasActiveFilters,
   type ReportFilters,
 } from "../model/report-filters"
+import type { ReportExpenseLine } from "../model/report-line"
 import {
   formatScopeLabel,
   isPeriodBefore,
@@ -55,6 +60,9 @@ const EMPTY_SCOPE_MESSAGE = "No hay gastos registrados en el alcance elegido."
 
 const EMPTY_FILTER_MESSAGE =
   "Ningún gasto del alcance coincide con los filtros aplicados."
+
+const EXPORT_ERROR_MESSAGE =
+  "No pudimos generar el PDF. Intentá de nuevo en un momento."
 
 const isCompletePeriod = ({ year, month }: Period): boolean =>
   Number.isInteger(year) &&
@@ -100,6 +108,8 @@ export const ReportsPage = () => {
   const [selection, setSelection] = useState(EMPTY_REPORT_SELECTION)
   const [isShowingFullSelection, setIsShowingFullSelection] = useState(false)
   const [includesSalaryContext, setIncludesSalaryContext] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
 
   const scope = buildScope(scopeKind, currentPeriod, rangeStart, rangeEnd)
   const scopeKey = scope === null ? "invalido" : scopeCacheKey(scope)
@@ -211,6 +221,33 @@ export const ReportsPage = () => {
   const totals = computeReportTotals(selectedLines(selection, lines), rates)
   const scopeLabel = formatScopeLabel(scope)
 
+  const exportPdf = (
+    source: ReportExportSource,
+    includedLines: readonly ReportExpenseLine[]
+  ) => {
+    setIsExporting(true)
+    setExportError(null)
+
+    // The PDF renderer is heavy and only matters when the user exports, so it
+    // is loaded on demand instead of travelling in the app bundle.
+    import("./report-pdf-download")
+      .then(({ downloadReportPdf }) =>
+        downloadReportPdf(
+          buildReportDocumentData({
+            scope,
+            scopeLines: lines,
+            includedLines,
+            budgets: budgetsQuery.data ?? [],
+            source,
+            includesSalaryContext,
+            generatedAt: new Date(),
+          })
+        )
+      )
+      .catch(() => setExportError(EXPORT_ERROR_MESSAGE))
+      .finally(() => setIsExporting(false))
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {header}
@@ -257,6 +294,8 @@ export const ReportsPage = () => {
             hiddenSelectedCount={hiddenSelectedLines.length}
             isShowingFullSelection={isShowingFullSelection}
             includesSalaryContext={includesSalaryContext}
+            isExporting={isExporting}
+            exportError={exportError}
             onSelectGroup={(group) =>
               setSelection((current) =>
                 selectVisibleGroup(current, filteredLines, group)
@@ -275,6 +314,10 @@ export const ReportsPage = () => {
               setIsShowingFullSelection((isShowing) => !isShowing)
             }
             onIncludesSalaryContextChange={setIncludesSalaryContext}
+            onExportFiltered={() => exportPdf("filtered", filteredLines)}
+            onExportSelection={() =>
+              exportPdf("selection", selectedLines(selection, lines))
+            }
           />
         </>
       )}

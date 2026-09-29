@@ -11,7 +11,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { AuthProvider } from "@/features/auth/auth-provider"
 import { createFakeSession } from "@/features/auth/tests/fixtures/session"
 import { ReportsPage } from "@/features/reports/components/reports-page"
+import type { ReportDocumentData } from "@/features/reports/model/report-document"
 import { addMonths, getCurrentPeriod } from "@/shared/lib/period"
+
+const downloadReportPdfMock =
+  vi.fn<(data: ReportDocumentData) => Promise<void>>()
+
+// La generación real del PDF no aporta nada acá: lo que importa es qué datos
+// recibe la descarga en cada botón.
+vi.mock("@/features/reports/components/report-pdf-download", () => ({
+  downloadReportPdf: (data: ReportDocumentData) => downloadReportPdfMock(data),
+}))
 
 const { authMock, fromMock, scenario } = vi.hoisted(() => {
   type QueryResult = { data: unknown; error: { message: string } | null }
@@ -126,11 +136,13 @@ describe("ReportsPage", () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    downloadReportPdfMock.mockResolvedValue(undefined)
     scenario.failingTable = null
     scenario.occurrences = [
       {
         id: "occurrence-1",
         amount: 45_000,
+        amount_is_estimated: false,
         installment_number: 3,
         year: currentPeriod.year,
         month: currentPeriod.month,
@@ -145,6 +157,7 @@ describe("ReportsPage", () => {
       {
         id: "occurrence-2",
         amount: 9_000,
+        amount_is_estimated: true,
         installment_number: null,
         year: previousPeriod.year,
         month: previousPeriod.month,
@@ -299,23 +312,125 @@ describe("ReportsPage", () => {
     expect(screen.queryByText("Notebook")).toBeNull()
   })
 
-  it("deja los dos botones de descarga a la vista pero todavía deshabilitados", async () => {
+  it("descarga el PDF de los resultados filtrados, no de todo el alcance", async () => {
     renderReportsPage()
 
-    const filteredExport = await screen.findByRole("button", {
-      name: "Descargar PDF de los resultados filtrados",
+    fireEvent.change(await screen.findByLabelText("Concepto"), {
+      target: { value: "notebook" },
     })
-    const selectionExport = screen.getByRole("button", {
+
+    await waitFor(() => {
+      expect(screen.queryByText("Hosting")).toBeNull()
+    })
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Descargar PDF de los resultados filtrados",
+      })
+    )
+
+    await waitFor(() => {
+      expect(downloadReportPdfMock).toHaveBeenCalledTimes(1)
+    })
+
+    const data = downloadReportPdfMock.mock.calls[0]?.[0]
+
+    expect(data?.source).toBe("filtered")
+    expect(data?.isPartial).toBe(true)
+    expect(data?.lines.map(({ line }) => line.id)).toEqual(["occurrence-1"])
+    // 45.000 ARS de la única línea filtrada, sin el USD que quedó afuera.
+    expect(data?.totals.totalArs.toString()).toBe("45000")
+  })
+
+  it("descarga el PDF de la selección sin importar el filtro vigente", async () => {
+    renderReportsPage()
+
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Hosting/ }))
+
+    fireEvent.change(screen.getByLabelText("Concepto"), {
+      target: { value: "notebook" },
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByText("Hosting")).toBeNull()
+    })
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Descargar PDF de la selección" })
+    )
+
+    await waitFor(() => {
+      expect(downloadReportPdfMock).toHaveBeenCalledTimes(1)
+    })
+
+    const data = downloadReportPdfMock.mock.calls[0]?.[0]
+
+    expect(data?.source).toBe("selection")
+    expect(data?.lines.map(({ line }) => line.id)).toEqual(["other-1"])
+  })
+
+  it("no exporta la selección mientras no haya ningún gasto marcado", async () => {
+    renderReportsPage()
+
+    const selectionExport = await screen.findByRole("button", {
       name: "Descargar PDF de la selección",
     })
 
-    expect(filteredExport.hasAttribute("disabled")).toBe(true)
     expect(selectionExport.hasAttribute("disabled")).toBe(true)
     expect(
       screen.getByText(
-        "Próximamente: la descarga del PDF todavía no está disponible."
+        "Seleccioná al menos un gasto para exportar la selección."
       )
     ).toBeDefined()
+  })
+
+  it("no mezcla el contexto de sueldo cuando la exportación es parcial", async () => {
+    renderReportsPage()
+
+    fireEvent.click(
+      await screen.findByRole("checkbox", {
+        name: "Incluir sueldo y disponible",
+      })
+    )
+
+    fireEvent.change(screen.getByLabelText("Concepto"), {
+      target: { value: "notebook" },
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByText("Hosting")).toBeNull()
+    })
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Descargar PDF de los resultados filtrados",
+      })
+    )
+
+    await waitFor(() => {
+      expect(downloadReportPdfMock).toHaveBeenCalledTimes(1)
+    })
+
+    expect(downloadReportPdfMock.mock.calls[0]?.[0]?.salaryContext).toEqual([])
+  })
+
+  it("avisa si la generación del PDF falla", async () => {
+    downloadReportPdfMock.mockRejectedValue(new Error("pdf exploded"))
+
+    renderReportsPage()
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Descargar PDF de los resultados filtrados",
+      })
+    )
+
+    expect(
+      await screen.findByText(
+        "No pudimos generar el PDF. Intentá de nuevo en un momento."
+      )
+    ).toBeDefined()
+    expect(screen.queryByText(/pdf exploded/)).toBeNull()
   })
 
   it("muestra un error genérico sin filtrar el detalle de Supabase", async () => {
