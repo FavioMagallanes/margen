@@ -1,4 +1,4 @@
-import { NavLink } from "react-router"
+import { NavLink, useLocation } from "react-router"
 
 import {
   Calendar03FreeIcons,
@@ -9,6 +9,7 @@ import type { IconSvgElement } from "@hugeicons/react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { cn } from "cn"
 
+import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs"
 import type { Period } from "@/shared/lib/period"
 
 type NavItem = {
@@ -44,42 +45,38 @@ type NavProps = {
   period: Period
 }
 
-export const Sidebar = ({ period }: NavProps) => (
-  <aside className="fixed inset-y-0 left-0 hidden w-56 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
-    <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
-      <img
-        src="/margen-web.svg"
-        alt=""
-        aria-hidden="true"
-        className="size-6 rounded-[0.3rem]"
-      />
-      <span className="text-sm font-semibold tracking-tight">Margen</span>
-    </div>
+const isPathActive = (pathname: string, path: string, end: boolean) =>
+  pathname === path || (!end && pathname.startsWith(`${path}/`))
 
-    <nav
-      aria-label="Navegación principal"
-      className="flex flex-col gap-0.5 p-2"
+export const DesktopTabs = ({ period }: NavProps) => {
+  const { pathname } = useLocation()
+  // Mirrors NavLink's own matching so the highlighted tab follows the route.
+  const activeItem = NAV_ITEMS.find((item) =>
+    isPathActive(pathname, item.buildPath(period), item.end)
+  )
+
+  return (
+    <Tabs
+      value={activeItem?.label ?? null}
+      render={<nav aria-label="Navegación principal" />}
+      className="hidden border-b border-border px-8 lg:flex"
     >
-      {NAV_ITEMS.map((item) => (
-        <NavLink
-          key={item.label}
-          to={item.buildPath(period)}
-          end={item.end}
-          className={({ isActive }) =>
-            cn(
-              "flex items-center gap-2.5 rounded-md border-l-2 border-transparent px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-              isActive &&
-                "border-l-sidebar-primary bg-sidebar-accent font-medium text-sidebar-primary"
-            )
-          }
-        >
-          <HugeiconsIcon icon={item.icon} size={18} strokeWidth={1.5} />
-          {item.label}
-        </NavLink>
-      ))}
-    </nav>
-  </aside>
-)
+      <TabsList className="h-11 gap-1 bg-transparent p-0">
+        {NAV_ITEMS.map((item) => (
+          <TabsTab
+            key={item.label}
+            value={item.label}
+            render={<NavLink to={item.buildPath(period)} end={item.end} />}
+            className="h-11 flex-none rounded-none px-4 text-sm data-selected:bg-transparent data-selected:text-primary data-selected:shadow-none"
+          >
+            <HugeiconsIcon icon={item.icon} size={18} strokeWidth={1.5} />
+            {item.label}
+          </TabsTab>
+        ))}
+      </TabsList>
+    </Tabs>
+  )
+}
 
 export const BottomNav = ({ period }: NavProps) => (
   <nav

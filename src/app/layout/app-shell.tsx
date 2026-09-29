@@ -4,7 +4,7 @@ import { LogoutButton } from "@/features/auth/components/logout-button"
 import { getCurrentPeriod, parsePeriod } from "@/shared/lib/period"
 
 import { MonthSwitcher } from "./month-switcher"
-import { BottomNav, Sidebar } from "./sidebar"
+import { BottomNav, DesktopTabs } from "./sidebar"
 import { ThemeToggle } from "./theme-toggle"
 
 const REPORTS_PATH = "/reports"
@@ -21,11 +21,9 @@ export const AppShell = () => {
 
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <Sidebar period={navPeriod} />
-
-      <div className="lg:pl-56">
+      <div>
         <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b border-border bg-background/80 px-4 backdrop-blur lg:px-8">
-          <span className="flex items-center gap-2 lg:hidden">
+          <span className="flex items-center gap-2">
             <img
               src="/margen-web.svg"
               alt=""
@@ -42,6 +40,8 @@ export const AppShell = () => {
             <ThemeToggle />
           </div>
         </header>
+
+        <DesktopTabs period={navPeriod} />
 
         <main
           className={`mx-auto w-full ${contentWidth} px-4 pt-6 pb-24 lg:px-8 lg:pb-10`}
