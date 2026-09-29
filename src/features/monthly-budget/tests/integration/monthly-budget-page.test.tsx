@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -652,5 +653,104 @@ describe("MonthlyBudgetPage", () => {
       expect(screen.getByText(/1\.640,00 por USD/)).toBeDefined()
       expect(screen.queryByText(/2\.008,50 por USD/)).toBeNull()
     })
+  })
+})
+
+describe("MonthlyBudgetPage: acciones sobre los gastos del mes", () => {
+  // Vitest runs without globals, so Testing Library's auto cleanup is not registered.
+  afterEach(cleanup)
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    scenario.budgets.clear()
+    scenario.expenseOccurrences = []
+    scenario.otherExpenses = []
+    scenario.failingTable = null
+    scenario.upsertError = null
+
+    authMock.getSession.mockResolvedValue({
+      data: { session: createFakeSession() },
+      error: null,
+    })
+    authMock.onAuthStateChange.mockReturnValue({
+      data: { subscription: { unsubscribe: vi.fn() } },
+    })
+  })
+
+  it("cada línea ofrece las acciones de la feature dueña de su tipo", async () => {
+    scenario.expenseOccurrences = [
+      {
+        id: "occurrence-1",
+        amount: 45_000,
+        installment_number: 3,
+        spending_plans: {
+          id: "plan-notebook",
+          kind: "card_purchase",
+          concept: "Notebook",
+          group_label: "BBVA",
+          currency: "ars",
+          total_installments: 6,
+        },
+      },
+      {
+        id: "occurrence-2",
+        amount: 30_000,
+        installment_number: null,
+        spending_plans: {
+          id: "plan-internet",
+          kind: "recurring",
+          concept: "Internet",
+          group_label: "Otros gastos",
+          currency: "ars",
+          total_installments: null,
+        },
+      },
+    ]
+    scenario.otherExpenses = [
+      {
+        id: "other-1",
+        concept: "Supermercado",
+        amount: 85_000,
+        currency: "ars",
+      },
+    ]
+
+    renderBudgetPage()
+
+    const cardRow = within(await screen.findByRole("row", { name: /Notebook/ }))
+    const recurringRow = within(screen.getByRole("row", { name: /Internet/ }))
+    const otherRow = within(screen.getByRole("row", { name: /Supermercado/ }))
+
+    expect(cardRow.getByRole("button", { name: "Editar" })).toBeDefined()
+    expect(cardRow.getByRole("button", { name: "Eliminar" })).toBeDefined()
+
+    // Un recurrente además puede corregir el importe del mes y detenerse, que
+    // no son un alta ni una baja.
+    expect(
+      recurringRow.getByRole("button", { name: "Corregir importe" })
+    ).toBeDefined()
+    expect(recurringRow.getByRole("button", { name: "Detener" })).toBeDefined()
+
+    expect(otherRow.getByRole("button", { name: "Editar" })).toBeDefined()
+    expect(otherRow.getByRole("button", { name: "Eliminar" })).toBeDefined()
+  })
+
+  it("«Agregar gasto» ofrece un formulario por tipo, el lote y la generación de recurrentes", async () => {
+    renderBudgetPage()
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Agregar gasto" })
+    )
+
+    for (const option of [
+      "Compra con tarjeta",
+      "Cargar varias compras",
+      "Préstamo",
+      "Gasto recurrente",
+      "Generar recurrentes de este mes",
+      "Otro gasto",
+    ]) {
+      expect(await screen.findByRole("button", { name: option })).toBeDefined()
+    }
   })
 })

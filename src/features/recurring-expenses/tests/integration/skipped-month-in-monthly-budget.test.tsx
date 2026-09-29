@@ -1,8 +1,11 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
+import { AuthProvider } from "@/features/auth/auth-provider"
 import { fetchMonthExpenseLines } from "@/features/monthly-budget/api/monthly-budget-queries"
 import { MonthExpenses } from "@/features/monthly-budget/components/month-expenses"
+import type { MonthExpenseLine } from "@/features/monthly-budget/model/month-expense-line"
 import type { Period } from "@/shared/lib/period"
 
 /**
@@ -25,7 +28,7 @@ type StoredOccurrence = {
   }
 }
 
-const { fromMock, scenario } = vi.hoisted(() => {
+const { fromMock, authMock, scenario } = vi.hoisted(() => {
   type QueryResult = { data: unknown; error: { message: string } | null }
 
   const scenario = { occurrences: [] as { is_skipped: boolean }[] }
@@ -69,11 +72,24 @@ const { fromMock, scenario } = vi.hoisted(() => {
     return builder
   }
 
-  return { fromMock: vi.fn((table: string) => createBuilder(table)), scenario }
+  return {
+    fromMock: vi.fn((table: string) => createBuilder(table)),
+    authMock: {
+      getSession: vi.fn(() =>
+        Promise.resolve({ data: { session: null }, error: null })
+      ),
+      onAuthStateChange: vi.fn(() => ({
+        data: { subscription: { unsubscribe: () => undefined } },
+      })),
+      signInWithPassword: vi.fn(),
+      signOut: vi.fn(),
+    },
+    scenario,
+  }
 })
 
 vi.mock("@/shared/lib/supabase/client", () => ({
-  supabase: { from: fromMock },
+  supabase: { from: fromMock, auth: authMock },
 }))
 
 const VIEWED_PERIOD: Period = { year: 2026, month: 3 }
@@ -114,6 +130,22 @@ const setOccurrences = (occurrences: StoredOccurrence[]) => {
   scenario.occurrences = occurrences
 }
 
+// Cada fila ofrece además sus acciones, que necesitan la sesión y el cliente
+// de consultas que provee la página de Presupuesto.
+const renderMonthExpenses = (lines: readonly MonthExpenseLine[]) =>
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <AuthProvider>
+        <MonthExpenses
+          lines={lines}
+          arsPerUsd={null}
+          period={VIEWED_PERIOD}
+          periodLabel="Marzo 2026"
+        />
+      </AuthProvider>
+    </QueryClientProvider>
+  )
+
 describe("un recurrente omitido dentro del resumen del mes", () => {
   // Vitest runs without globals, so Testing Library's auto cleanup is not registered.
   afterEach(cleanup)
@@ -133,9 +165,7 @@ describe("un recurrente omitido dentro del resumen del mes", () => {
     expect(lines[0]?.kind).toBe("recurring")
     expect(lines[0]?.planId).toBe("plan-internet")
 
-    render(
-      <MonthExpenses lines={lines} arsPerUsd={null} periodLabel="Marzo 2026" />
-    )
+    renderMonthExpenses(lines)
 
     expect(screen.queryByText("Luz")).toBeNull()
     expect(screen.queryByText("Sin dato")).toBeNull()
@@ -151,9 +181,7 @@ describe("un recurrente omitido dentro del resumen del mes", () => {
 
     expect(lines).toHaveLength(2)
 
-    render(
-      <MonthExpenses lines={lines} arsPerUsd={null} periodLabel="Marzo 2026" />
-    )
+    renderMonthExpenses(lines)
 
     expect(screen.getByText("Sin dato")).toBeDefined()
     expect(

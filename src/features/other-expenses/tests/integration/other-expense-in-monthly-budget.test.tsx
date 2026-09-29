@@ -1,6 +1,8 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, render, screen, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+import { AuthProvider } from "@/features/auth/auth-provider"
 import { fetchMonthExpenseLines } from "@/features/monthly-budget/api/monthly-budget-queries"
 import { MonthExpenses } from "@/features/monthly-budget/components/month-expenses"
 import type { Period } from "@/shared/lib/period"
@@ -10,7 +12,7 @@ import type { Period } from "@/shared/lib/period"
  * this only checks that a USD one reaches the very same calculation instead of
  * repeating the exchange rate cases already covered by monthly-budget.
  */
-const { fromMock } = vi.hoisted(() => {
+const { fromMock, authMock } = vi.hoisted(() => {
   type QueryResult = { data: unknown; error: { message: string } | null }
 
   const rowsByTable: Record<string, unknown[]> = {
@@ -44,11 +46,23 @@ const { fromMock } = vi.hoisted(() => {
     return builder
   }
 
-  return { fromMock: vi.fn((table: string) => createBuilder(table)) }
+  return {
+    fromMock: vi.fn((table: string) => createBuilder(table)),
+    authMock: {
+      getSession: vi.fn(() =>
+        Promise.resolve({ data: { session: null }, error: null })
+      ),
+      onAuthStateChange: vi.fn(() => ({
+        data: { subscription: { unsubscribe: () => undefined } },
+      })),
+      signInWithPassword: vi.fn(),
+      signOut: vi.fn(),
+    },
+  }
 })
 
 vi.mock("@/shared/lib/supabase/client", () => ({
-  supabase: { from: fromMock },
+  supabase: { from: fromMock, auth: authMock },
 }))
 
 const VIEWED_PERIOD: Period = { year: 2026, month: 3 }
@@ -63,8 +77,19 @@ describe("otros gastos dentro del resumen del mes", () => {
     expect(lines).toHaveLength(1)
     expect(lines[0]?.group).toBe("Otros gastos")
 
+    // The row also offers its actions, which need the session and the query
+    // client the budget page provides.
     render(
-      <MonthExpenses lines={lines} arsPerUsd={null} periodLabel="Marzo 2026" />
+      <QueryClientProvider client={new QueryClient()}>
+        <AuthProvider>
+          <MonthExpenses
+            lines={lines}
+            arsPerUsd={null}
+            period={VIEWED_PERIOD}
+            periodLabel="Marzo 2026"
+          />
+        </AuthProvider>
+      </QueryClientProvider>
     )
 
     const row = within(screen.getByRole("row", { name: /Hosting/ }))

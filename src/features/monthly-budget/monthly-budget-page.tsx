@@ -21,6 +21,7 @@ import {
   useMonthExpenseLinesQuery,
   useMonthlyBudgetQuery,
 } from "./api/monthly-budget-queries"
+import { AddExpenseMenu } from "./components/add-expense-menu"
 import { ExchangeRatePanel } from "./components/exchange-rate-panel"
 import { MonthExpenses } from "./components/month-expenses"
 import { SalaryForm } from "./components/salary-form"
@@ -199,9 +200,23 @@ export const MonthlyBudgetPage = () => {
         </CardContent>
       </Card>
 
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-lg font-semibold tracking-tight">
+            Gastos de {formatPeriodLabel(period)}
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            Desde acá cargás, editás y eliminás cualquier gasto del mes.
+          </p>
+        </div>
+
+        <AddExpenseMenu period={period} />
+      </div>
+
       <MonthExpenses
         lines={expenseLines}
         arsPerUsd={arsPerUsd}
+        period={period}
         periodLabel={formatPeriodLabel(period)}
       />
     </div>

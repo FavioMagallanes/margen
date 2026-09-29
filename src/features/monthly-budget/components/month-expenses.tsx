@@ -10,6 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { formatArs } from "@/shared/lib/money"
+import type { Period } from "@/shared/lib/period"
 
 import {
   computeExpenseGroupTotals,
@@ -17,10 +18,13 @@ import {
   toArsEquivalent,
 } from "../model/expense-total"
 import type { MonthExpenseLine } from "../model/month-expense-line"
+import { MonthExpenseActions } from "./month-expense-actions"
 
 type MonthExpensesProps = {
   lines: readonly MonthExpenseLine[]
   arsPerUsd: number | null
+  /** The month the lines belong to: every action applies from there (P-04). */
+  period: Period
   periodLabel: string
 }
 
@@ -31,6 +35,20 @@ const usdFormatter = new Intl.NumberFormat("es-AR", {
 })
 
 const MISSING_AMOUNT_LABEL = "Sin dato"
+
+/**
+ * The line already carries its installment as «n/m», so the last one is read
+ * from that text instead of asking the owning feature for its numbers again.
+ */
+const isLastInstallment = (installment: string | null): boolean => {
+  if (installment === null) {
+    return false
+  }
+
+  const [current, total] = installment.split("/")
+
+  return total !== undefined && current === total
+}
 
 const formatOriginalAmount = (line: ExpenseLine) => {
   if (line.amount === null) {
@@ -51,6 +69,7 @@ const formatOriginalAmount = (line: ExpenseLine) => {
 export const MonthExpenses = ({
   lines,
   arsPerUsd,
+  period,
   periodLabel,
 }: MonthExpensesProps) => {
   if (lines.length === 0) {
@@ -120,6 +139,12 @@ export const MonthExpenses = ({
               >
                 Equivalente en ARS
               </TableHead>
+              <TableHead
+                scope="col"
+                className="px-4 text-right text-muted-foreground"
+              >
+                Acciones
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -136,9 +161,14 @@ export const MonthExpenses = ({
                     {line.installment === null ? (
                       <span className="text-muted-foreground">—</span>
                     ) : (
-                      <Badge variant="outline" className="font-mono">
-                        {line.installment}
-                      </Badge>
+                      <span className="flex items-center gap-1">
+                        <Badge variant="outline" className="font-mono">
+                          {line.installment}
+                        </Badge>
+                        {isLastInstallment(line.installment) ? (
+                          <Badge variant="secondary">Última cuota</Badge>
+                        ) : null}
+                      </span>
                     )}
                   </TableCell>
                   <TableCell className="px-4 text-right font-mono">
@@ -155,6 +185,9 @@ export const MonthExpenses = ({
                     ) : (
                       formatArs(arsEquivalent)
                     )}
+                  </TableCell>
+                  <TableCell className="px-4">
+                    <MonthExpenseActions line={line} period={period} />
                   </TableCell>
                 </TableRow>
               )
