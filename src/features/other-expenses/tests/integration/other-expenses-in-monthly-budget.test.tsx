@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { AuthProvider } from "@/features/auth/auth-provider"
 import { createFakeSession } from "@/features/auth/tests/fixtures/session"
-import { OtherExpensesPage } from "@/features/other-expenses/components/other-expenses-page"
+import { MonthlyBudgetPage } from "@/features/monthly-budget/monthly-budget-page"
 import type { Period } from "@/shared/lib/period"
 
 type StoredOtherExpense = {
@@ -82,6 +82,16 @@ const {
         return { data: null, error: scenario.loadError }
       }
 
+      // The budget reads its salary and its plan lines elsewhere; this suite
+      // only cares about the one-off expenses of the month.
+      if (table === "monthly_budgets") {
+        return { data: null, error: null }
+      }
+
+      if (table === "expense_occurrences") {
+        return { data: [], error: null }
+      }
+
       selectFiltersMock(table, filters)
 
       const rows = scenario.expenses.filter(
@@ -118,6 +128,7 @@ const {
         return builder
       },
       order: () => builder,
+      maybeSingle: () => Promise.resolve(result()),
       then: <TFulfilled = QueryResult, TRejected = never>(
         onfulfilled?:
           ((value: QueryResult) => TFulfilled | PromiseLike<TFulfilled>) | null,
@@ -176,7 +187,7 @@ const setExpenses = (expenses: StoredOtherExpense[]) => {
   scenario.expenses = expenses
 }
 
-const renderOtherExpensesPage = () => {
+const renderBudgetPage = () => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
@@ -186,13 +197,13 @@ const renderOtherExpensesPage = () => {
       <AuthProvider>
         <MemoryRouter
           initialEntries={[
-            `/months/${VIEWED_PERIOD.year}/${VIEWED_PERIOD.month}/other`,
+            `/months/${VIEWED_PERIOD.year}/${VIEWED_PERIOD.month}`,
           ]}
         >
           <Routes>
             <Route
-              path="/months/:year/:month/other"
-              element={<OtherExpensesPage />}
+              path="/months/:year/:month"
+              element={<MonthlyBudgetPage />}
             />
           </Routes>
         </MemoryRouter>
@@ -204,8 +215,16 @@ const renderOtherExpensesPage = () => {
 const rowOf = (concept: string) =>
   within(screen.getByRole("row", { name: new RegExp(concept) }))
 
+/**
+ * Every load starts at the budget's single entry point: the type of expense is
+ * chosen there, and only then this feature's form opens.
+ */
 const openCreateForm = async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Agregar gasto" }))
+  fireEvent.click(await screen.findByRole("button", { name: "Otro gasto" }))
+
+  // The form waits for the expenses of the month before opening (RF-09).
+  await screen.findByLabelText("Concepto")
 }
 
 const fillConceptAndAmount = (concept: string, amount: string) => {
@@ -217,7 +236,7 @@ const fillConceptAndAmount = (concept: string, amount: string) => {
   })
 }
 
-describe("OtherExpensesPage", () => {
+describe("otros gastos desde Presupuesto", () => {
   // Vitest runs without globals, so Testing Library's auto cleanup is not registered.
   afterEach(cleanup)
 
@@ -237,10 +256,10 @@ describe("OtherExpensesPage", () => {
   })
 
   it("muestra el mes vacío sin perder el acceso a cargar un gasto", async () => {
-    renderOtherExpensesPage()
+    renderBudgetPage()
 
     expect(
-      await screen.findByText("Todavía no cargaste otros gastos para este mes.")
+      await screen.findByText("Todavía no cargaste gastos para este mes.")
     ).toBeDefined()
     expect(screen.getByRole("button", { name: "Agregar gasto" })).toBeDefined()
   })
@@ -251,10 +270,11 @@ describe("OtherExpensesPage", () => {
       { ...vet, month: VIEWED_PERIOD.month + 1, concept: "Veterinaria" },
     ])
 
-    renderOtherExpensesPage()
+    renderBudgetPage()
 
     expect(await screen.findByText("Supermercado")).toBeDefined()
-    expect(rowOf("Supermercado").getByText("Débito")).toBeDefined()
+    expect(screen.queryByText("Veterinaria")).toBeNull()
+    expect(rowOf("Supermercado").getByText("Otros gastos")).toBeDefined()
     expect(rowOf("Supermercado").getByText(/85\.000,00/)).toBeDefined()
 
     expect(selectFiltersMock).toHaveBeenCalledWith("other_expenses", {
@@ -264,7 +284,7 @@ describe("OtherExpensesPage", () => {
   })
 
   it("carga un gasto sin medio de pago en el mes que se está viendo", async () => {
-    renderOtherExpensesPage()
+    renderBudgetPage()
 
     await openCreateForm()
     fillConceptAndAmount("Veterinaria", "40000")
@@ -285,7 +305,7 @@ describe("OtherExpensesPage", () => {
   })
 
   it("carga un gasto en dólares con un medio de pago elegido", async () => {
-    renderOtherExpensesPage()
+    renderBudgetPage()
 
     await openCreateForm()
     fillConceptAndAmount("Hosting", "120")
@@ -309,7 +329,7 @@ describe("OtherExpensesPage", () => {
   })
 
   it("guarda el texto libre cuando el medio de pago es «Otro»", async () => {
-    renderOtherExpensesPage()
+    renderBudgetPage()
 
     await openCreateForm()
     fillConceptAndAmount("Arreglo del auto", "230000")
@@ -334,7 +354,7 @@ describe("OtherExpensesPage", () => {
   })
 
   it("no guarda «Otro» sin el texto del medio de pago", async () => {
-    renderOtherExpensesPage()
+    renderBudgetPage()
 
     await openCreateForm()
     fillConceptAndAmount("Arreglo del auto", "230000")
@@ -349,7 +369,7 @@ describe("OtherExpensesPage", () => {
   })
 
   it("no guarda un gasto con importe vacío o en cero", async () => {
-    renderOtherExpensesPage()
+    renderBudgetPage()
 
     await openCreateForm()
     fillConceptAndAmount("Veterinaria", "0")
@@ -365,7 +385,7 @@ describe("OtherExpensesPage", () => {
   it("edita un gasto conservando su mes de imputación", async () => {
     setExpenses([groceries])
 
-    renderOtherExpensesPage()
+    renderBudgetPage()
 
     fireEvent.click(
       await within(
@@ -373,7 +393,7 @@ describe("OtherExpensesPage", () => {
       ).findByRole("button", { name: "Editar" })
     )
 
-    fireEvent.change(screen.getByLabelText("Importe"), {
+    fireEvent.change(await screen.findByLabelText("Importe"), {
       target: { value: "92500" },
     })
     fireEvent.click(screen.getByRole("radio", { name: "Efectivo" }))
@@ -397,7 +417,7 @@ describe("OtherExpensesPage", () => {
   it("elimina el gasto solo después de confirmar", async () => {
     setExpenses([groceries])
 
-    renderOtherExpensesPage()
+    renderBudgetPage()
 
     fireEvent.click(
       await within(
@@ -420,11 +440,11 @@ describe("OtherExpensesPage", () => {
   it("muestra un error genérico sin filtrar el detalle de Supabase", async () => {
     scenario.loadError = { message: "database exploded" }
 
-    renderOtherExpensesPage()
+    renderBudgetPage()
 
     expect(
       await screen.findByText(
-        "No pudimos cargar los gastos del mes. Intentá de nuevo en un momento."
+        "No pudimos cargar el presupuesto del mes. Intentá de nuevo en un momento."
       )
     ).toBeDefined()
     expect(screen.queryByText(/database exploded/)).toBeNull()
@@ -438,7 +458,7 @@ const openFormAndRepeatGroceries = async () => {
   fillConceptAndAmount("  supermercado ", "85000")
 }
 
-describe("OtherExpensesPage: carga rápida (RF-09)", () => {
+describe("otros gastos desde Presupuesto: carga rápida (RF-09)", () => {
   afterEach(cleanup)
 
   beforeEach(() => {
@@ -457,7 +477,7 @@ describe("OtherExpensesPage: carga rápida (RF-09)", () => {
   })
 
   it("«Guardar y agregar otro» guarda y deja el formulario abierto y en blanco", async () => {
-    renderOtherExpensesPage()
+    renderBudgetPage()
 
     await openCreateForm()
     fillConceptAndAmount("Veterinaria", "40000")
@@ -494,7 +514,7 @@ describe("OtherExpensesPage: carga rápida (RF-09)", () => {
   it("avisa del posible duplicado y no guarda nada si el usuario revisa", async () => {
     setExpenses([groceries])
 
-    renderOtherExpensesPage()
+    renderBudgetPage()
 
     await openFormAndRepeatGroceries()
 
@@ -519,7 +539,7 @@ describe("OtherExpensesPage: carga rápida (RF-09)", () => {
   it("guarda igual cuando el usuario confirma el aviso", async () => {
     setExpenses([groceries])
 
-    renderOtherExpensesPage()
+    renderBudgetPage()
 
     await openFormAndRepeatGroceries()
 
@@ -542,7 +562,7 @@ describe("OtherExpensesPage: carga rápida (RF-09)", () => {
   it("no interrumpe el caso normal: otro importe no es un duplicado", async () => {
     setExpenses([groceries])
 
-    renderOtherExpensesPage()
+    renderBudgetPage()
 
     await openCreateForm()
     fillConceptAndAmount("Supermercado", "90000")
