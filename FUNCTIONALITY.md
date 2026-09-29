@@ -1,6 +1,6 @@
 # Especificación funcional — App personal de presupuesto y gastos
 
-**Versión:** 1.4  
+**Versión:** 1.5  
 **Fecha:** 29 de septiembre de 2026  
 **Nombre de la aplicación:** Margen.  
 **Estado:** base funcional para desarrollar y seguir iterando el producto.
@@ -54,6 +54,8 @@ Período identificado por mes y año. Como base se usan meses calendario. Contie
 El mes asignado a un gasto no depende necesariamente de la fecha en que se lo carga. Es posible registrar en septiembre una compra cuya primera cuota corresponda a octubre.
 
 **Mes de trabajo:** el sueldo que se cobra en un mes calendario paga lo que se fue cargando durante el mes calendario anterior. Por eso el mes presupuestario que la app muestra por defecto es el mes calendario real + 1 (por ejemplo, en septiembre de 2026 se abre octubre de 2026). Reportes (RF-10) es la excepción: sigue anclado al mes calendario real.
+
+El título de la sección de gastos de cualquier mes presupuestario P siempre dice «A pagar en {P+1}», sin excepción — no solo en el mes de trabajo por defecto, sino en cualquier mes que se esté consultando (pasado, de trabajo o futuro). El sueldo mostrado en esa misma página sigue etiquetándose con el mes P real («Sueldo de {P}»), sin corrimiento.
 
 ### Gasto mensual
 
@@ -427,6 +429,14 @@ para todo tipo de gasto. Por eso el presupuesto y esta vista abren por
 defecto en el mes de trabajo (mes calendario real + 1) y el título de la
 sección de gastos del presupuesto pasó de «Gastos de {mes}» a «A pagar
 en {mes}». Reportes (RF-10) no cambia: sigue en el mes calendario real.
+
+**Cambio v1.5:** corrección a v1.4, por pedido explícito del usuario: el
+título «A pagar en {mes}» de la sección de gastos del presupuesto no usa
+el mismo mes de la página — usa siempre el mes siguiente al de esa
+página, sin excepción (viendo Septiembre dice «A pagar en Octubre»;
+viendo Octubre dice «A pagar en Noviembre», aunque esa sea la página que
+abre por defecto). El sueldo mostrado sigue siendo el de la página real,
+sin corrimiento.
 
 ## 16. RF-13 — Acceso privado y uso en dos dispositivos
 

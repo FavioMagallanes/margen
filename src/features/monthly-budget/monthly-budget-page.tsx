@@ -205,7 +205,7 @@ export const MonthlyBudgetPage = () => {
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="text-lg font-semibold tracking-tight">
-            A pagar en {formatPeriodLabel(period)}
+            A pagar en {formatPeriodLabel(addMonths(period, 1))}
           </h1>
           <p className="text-xs text-muted-foreground">
             Desde acá cargás, editás y eliminás cualquier gasto del mes.
@@ -219,7 +219,7 @@ export const MonthlyBudgetPage = () => {
         lines={expenseLines}
         arsPerUsd={arsPerUsd}
         period={period}
-        periodLabel={formatPeriodLabel(period)}
+        periodLabel={formatPeriodLabel(addMonths(period, 1))}
       />
     </div>
   )
