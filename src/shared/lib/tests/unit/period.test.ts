@@ -4,6 +4,7 @@ import {
   addMonths,
   formatPeriodLabel,
   getCurrentPeriod,
+  getWorkingPeriod,
   isSamePeriod,
   parsePeriod,
 } from "@/shared/lib/period"
@@ -13,6 +14,22 @@ describe("getCurrentPeriod", () => {
     expect(getCurrentPeriod(new Date(2026, 8, 15))).toEqual({
       year: 2026,
       month: 9,
+    })
+  })
+})
+
+describe("getWorkingPeriod", () => {
+  it("devuelve el mes calendario real más uno", () => {
+    expect(getWorkingPeriod(new Date(2026, 8, 15))).toEqual({
+      year: 2026,
+      month: 10,
+    })
+  })
+
+  it("pasa de diciembre a enero del año siguiente", () => {
+    expect(getWorkingPeriod(new Date(2026, 11, 31))).toEqual({
+      year: 2027,
+      month: 1,
     })
   })
 })

@@ -12,7 +12,7 @@ import type { Period } from "@/shared/lib/period"
 import {
   addMonths,
   formatPeriodLabel,
-  getCurrentPeriod,
+  getWorkingPeriod,
   isSamePeriod,
 } from "@/shared/lib/period"
 
@@ -32,7 +32,9 @@ type MonthSwitcherProps = {
 export const MonthSwitcher = ({ period }: MonthSwitcherProps) => {
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const currentPeriod = getCurrentPeriod()
+  // "Hoy" targets the working month (real calendar month + 1), same as the
+  // router redirect, since that is the month the user is loading expenses for.
+  const workingPeriod = getWorkingPeriod()
 
   const goToPeriod = (nextPeriod: Period) => {
     void navigate(buildMonthPath(pathname, nextPeriod))
@@ -62,12 +64,12 @@ export const MonthSwitcher = ({ period }: MonthSwitcherProps) => {
         <HugeiconsIcon icon={ArrowRight01FreeIcons} size={16} />
       </Button>
 
-      {isSamePeriod(period, currentPeriod) ? null : (
+      {isSamePeriod(period, workingPeriod) ? null : (
         <Button
           variant="outline"
           size="sm"
           className="ml-2"
-          onClick={() => goToPeriod(currentPeriod)}
+          onClick={() => goToPeriod(workingPeriod)}
         >
           Hoy
         </Button>

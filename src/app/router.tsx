@@ -7,11 +7,13 @@ import { RequireAuth } from "@/features/auth/components/require-auth"
 import { MonthlyBudgetPage } from "@/features/monthly-budget/monthly-budget-page"
 import { ReportsPage } from "@/features/reports/components/reports-page"
 import { UpcomingExpensesPage } from "@/features/upcoming-expenses/components/upcoming-expenses-page"
-import { getCurrentPeriod } from "@/shared/lib/period"
+import { getWorkingPeriod } from "@/shared/lib/period"
 
-// Resolved per navigation so a session open across midnight still lands on today.
+// Resolved per navigation so a session open across midnight still lands on the
+// right month. It lands on the working month (real calendar month + 1), not on
+// the real calendar month.
 const redirectToCurrentMonth = () => {
-  const { year, month } = getCurrentPeriod()
+  const { year, month } = getWorkingPeriod()
 
   return redirect(`/months/${year}/${month}`)
 }

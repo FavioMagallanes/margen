@@ -21,6 +21,11 @@ export const addMonths = (period: Period, amount: number): Period => {
   }
 }
 
+// The salary earned in calendar month X pays what was loaded during month X-1,
+// so the month the user works on is always the real calendar month plus one.
+export const getWorkingPeriod = (now: Date = new Date()): Period =>
+  addMonths(getCurrentPeriod(now), 1)
+
 export const isSamePeriod = (left: Period, right: Period) =>
   left.year === right.year && left.month === right.month
 

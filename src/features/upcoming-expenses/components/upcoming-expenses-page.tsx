@@ -10,7 +10,7 @@ import { computeExpenseTotal } from "@/features/monthly-budget/model/expense-tot
 import { formatArs } from "@/shared/lib/money"
 import {
   formatPeriodLabel,
-  getCurrentPeriod,
+  getWorkingPeriod,
   parsePeriod,
 } from "@/shared/lib/period"
 
@@ -34,7 +34,7 @@ const USD_REFERENCE_MESSAGE =
 
 export const UpcomingExpensesPage = () => {
   const { year, month } = useParams()
-  const period = parsePeriod(year, month) ?? getCurrentPeriod()
+  const period = parsePeriod(year, month) ?? getWorkingPeriod()
   const periodLabel = formatPeriodLabel(period)
 
   const { session } = useAuth()

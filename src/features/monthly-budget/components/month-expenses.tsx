@@ -114,7 +114,7 @@ export const MonthExpenses = ({
       <Card className="py-0">
         <Table className="min-w-[640px] text-sm">
           <TableCaption className="sr-only">
-            Gastos de {periodLabel}
+            A pagar en {periodLabel}
           </TableCaption>
           <TableHeader>
             <TableRow>

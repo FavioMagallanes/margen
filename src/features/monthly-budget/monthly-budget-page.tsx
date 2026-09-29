@@ -12,7 +12,7 @@ import { formatArs } from "@/shared/lib/money"
 import {
   addMonths,
   formatPeriodLabel,
-  getCurrentPeriod,
+  getWorkingPeriod,
   parsePeriod,
 } from "@/shared/lib/period"
 
@@ -36,7 +36,7 @@ const INCOMPLETE_TOTAL_MESSAGE =
 
 export const MonthlyBudgetPage = () => {
   const { year, month } = useParams()
-  const period = parsePeriod(year, month) ?? getCurrentPeriod()
+  const period = parsePeriod(year, month) ?? getWorkingPeriod()
   const previousPeriod = addMonths(period, -1)
 
   const { session } = useAuth()
@@ -205,7 +205,7 @@ export const MonthlyBudgetPage = () => {
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="text-lg font-semibold tracking-tight">
-            Gastos de {formatPeriodLabel(period)}
+            A pagar en {formatPeriodLabel(period)}
           </h1>
           <p className="text-xs text-muted-foreground">
             Desde acá cargás, editás y eliminás cualquier gasto del mes.
