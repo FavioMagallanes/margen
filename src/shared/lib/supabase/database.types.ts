@@ -221,6 +221,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      clear_month: {
+        Args: { p_month: number; p_year: number }
+        Returns: undefined
+      }
       create_card_purchase: {
         Args: {
           p_card: string

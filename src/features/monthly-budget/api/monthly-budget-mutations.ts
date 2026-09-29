@@ -22,11 +22,6 @@ export const SAVE_EXCHANGE_RATE_ERROR_MESSAGE =
 export const CLEAR_MONTH_ERROR_MESSAGE =
   "No pudimos limpiar el mes. Intentá de nuevo en un momento."
 
-type ClearMonthRpc = (
-  fn: "clear_month",
-  args: { p_year: number; p_month: number }
-) => PromiseLike<{ error: { message: string } | null }>
-
 export type SaveSalaryInput = {
   period: Period
   salaryArs: number
@@ -158,10 +153,7 @@ export const useClearMonthMutation = (userId: string | null) => {
         throw new Error("Cannot clear a month without an authenticated user")
       }
 
-      // clear_month is not in the generated types until they are regenerated
-      // after the migration is applied, so the call is typed by hand.
-      const callClearMonth = supabase.rpc.bind(supabase) as ClearMonthRpc
-      const { error } = await callClearMonth("clear_month", {
+      const { error } = await supabase.rpc("clear_month", {
         p_year: period.year,
         p_month: period.month,
       })
