@@ -3,11 +3,7 @@ import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer"
 import { formatArs } from "@/shared/lib/money"
 import { formatPeriodLabel } from "@/shared/lib/period"
 
-import type {
-  ReportDocumentData,
-  ReportDocumentMonth,
-  ReportWarning,
-} from "../model/report-document"
+import type { ReportDocumentData } from "../model/report-document"
 import {
   REPORT_CURRENCY_LABELS,
   REPORT_KIND_LABELS,
@@ -19,15 +15,6 @@ import {
   MISSING_AMOUNT_LABEL,
 } from "./report-amounts"
 
-const WARNING_MESSAGES: Record<ReportWarning, string> = {
-  estimated_amounts:
-    "Hay importes estimados: se tomaron de un mes anterior y todavía no se confirmaron.",
-  reference_exchange_rate:
-    "Las conversiones usan la cotización guardada de cada mes como referencia presupuestaria, no como el importe que cobró el banco.",
-  incomplete_data:
-    "Algún subtotal está incompleto: falta un importe o la cotización de algún mes incluido.",
-}
-
 const generatedAtFormatter = new Intl.DateTimeFormat("es-AR", {
   day: "2-digit",
   month: "2-digit",
@@ -35,46 +22,6 @@ const generatedAtFormatter = new Intl.DateTimeFormat("es-AR", {
   hour: "2-digit",
   minute: "2-digit",
 })
-
-const dateFormatter = new Intl.DateTimeFormat("es-AR", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-})
-
-const formatFetchedAt = (isoInstant: string | null): string | null => {
-  if (isoInstant === null) {
-    return null
-  }
-
-  const instant = new Date(isoInstant)
-
-  return Number.isNaN(instant.getTime()) ? null : dateFormatter.format(instant)
-}
-
-/** RF-07: each origin names its own date, never the other one's. */
-const describeRate = (month: ReportDocumentMonth): string => {
-  if (month.exchangeRateValue === null) {
-    return "Sin cotización guardada"
-  }
-
-  const rate = `${formatArs(month.exchangeRateValue)} por USD`
-  const fetchedAt = formatFetchedAt(month.exchangeRateFetchedAt)
-
-  if (month.exchangeRateSource === "manual") {
-    return fetchedAt === null
-      ? `${rate} · editada manualmente`
-      : `${rate} · editada manualmente el ${fetchedAt}`
-  }
-
-  if (month.exchangeRateSource === "api") {
-    return fetchedAt === null
-      ? `${rate} · actualizada automáticamente`
-      : `${rate} · actualizada automáticamente el ${fetchedAt}`
-  }
-
-  return rate
-}
 
 const describeExport = ({ isPartial, source }: ReportDocumentData): string => {
   if (!isPartial) {
@@ -92,7 +39,6 @@ const styles = StyleSheet.create({
   headerLine: { fontSize: 9, color: "#4b5563", marginBottom: 2 },
   section: { marginTop: 16 },
   sectionTitle: { fontSize: 11, marginBottom: 6 },
-  row: { flexDirection: "row", paddingVertical: 4 },
   headerRow: {
     flexDirection: "row",
     paddingVertical: 4,
@@ -205,35 +151,10 @@ export const ReportPdfDocument = ({ data }: ReportPdfDocumentProps) => (
           </View>
         ))}
         <View style={styles.totalRow}>
-          <Text>Total equivalente en ARS de lo exportado</Text>
+          <Text>Total</Text>
           <Text>{formatArs(data.totals.totalArs)}</Text>
         </View>
       </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Cotización aplicada por mes</Text>
-        {data.months.map((month) => (
-          <View
-            key={`${month.period.year}-${month.period.month}`}
-            style={styles.row}
-          >
-            <Text>
-              {formatPeriodLabel(month.period)}: {describeRate(month)}
-            </Text>
-          </View>
-        ))}
-      </View>
-
-      {data.warnings.length === 0 ? null : (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Advertencias</Text>
-          {data.warnings.map((warning) => (
-            <Text key={warning} style={styles.note}>
-              {WARNING_MESSAGES[warning]}
-            </Text>
-          ))}
-        </View>
-      )}
 
       {data.salaryContext.length === 0 ? null : (
         <View style={styles.section}>

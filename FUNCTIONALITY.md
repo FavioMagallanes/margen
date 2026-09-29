@@ -1,7 +1,7 @@
 # Especificación funcional — App personal de presupuesto y gastos
 
-**Versión:** 1.0  
-**Fecha:** 27 de septiembre de 2026  
+**Versión:** 1.1  
+**Fecha:** 29 de septiembre de 2026  
 **Nombre de la aplicación:** Margen.  
 **Estado:** base funcional para desarrollar y seguir iterando el producto.
 
@@ -352,9 +352,15 @@ El alcance puede ser un mes, un rango de meses o todo el historial registrado. E
 - Número de cuota y total de cuotas, si aplica.
 - Importe y moneda originales.
 - Equivalente en ARS para consumos en USD.
-- Cotización aplicada, su origen y fecha disponible, por cada mes que lo requiera.
 - Subtotales por grupo y moneda, y total equivalente en ARS.
-- Advertencias si existen estimaciones, cotizaciones de referencia o datos incompletos.
+
+**Cambio v1.1:** por pedido explícito del usuario, el PDF ya no incluye
+el detalle de "Cotización aplicada por mes" ni una sección de
+"Advertencias" separada — se prefirió un documento más corto. El
+equivalente en ARS de cada línea en USD sigue calculándose con la
+cotización guardada de su propio mes (eso no cambia, sólo se dejó de
+listar aparte); la distinción entre importe conocido/estimado/faltante
+sigue visible en cada línea individual.
 
 Se puede incluir u ocultar el sueldo y el disponible. En una exportación parcial, cualquier resumen mensual completo que se incluya debe estar separado y rotulado como contexto, no mezclarse con el total de la selección.
 

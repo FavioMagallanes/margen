@@ -99,12 +99,6 @@ describe("buildReportDocumentData", () => {
       ["feb-1", "200000"],
     ])
     expect(data.totals.totalArs.toString()).toBe("300000")
-    expect(
-      data.months.map((month) => [month.period.month, month.exchangeRateValue])
-    ).toEqual([
-      [1, 1_000],
-      [2, 2_000],
-    ])
   })
 
   it("no mezcla el contexto de sueldo de un mes exportado parcialmente", () => {
@@ -140,7 +134,7 @@ describe("buildReportDocumentData", () => {
     expect(data.salaryContext).toEqual([])
   })
 
-  it("avisa de importes estimados, conversión de referencia y datos faltantes", () => {
+  it("suma solo las líneas incluidas al calcular el total, con datos faltantes o estimados", () => {
     const estimated = createReportLine({
       id: "feb-2",
       concept: "Luz",
@@ -171,10 +165,11 @@ describe("buildReportDocumentData", () => {
       generatedAt: new Date("2026-03-01T12:00:00Z"),
     })
 
-    expect(data.warnings).toEqual([
-      "estimated_amounts",
-      "reference_exchange_rate",
-      "incomplete_data",
+    expect(data.totals.isComplete).toBe(false)
+    expect(data.lines.map(({ line }) => line.id)).toEqual([
+      "feb-1",
+      "feb-2",
+      "feb-3",
     ])
   })
 })

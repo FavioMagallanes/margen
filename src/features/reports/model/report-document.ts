@@ -23,21 +23,10 @@ import {
  */
 export type ReportExportSource = "filtered" | "selection"
 
-export type ReportWarning =
-  "estimated_amounts" | "incomplete_data" | "reference_exchange_rate"
-
 export type ReportDocumentLine = {
   line: ReportExpenseLine
   /** Only USD lines get one; null when the month has no saved rate. */
   arsEquivalent: Decimal | null
-}
-
-/** The rate of one month as it was saved, never re-fetched to export. */
-export type ReportDocumentMonth = {
-  period: Period
-  exchangeRateValue: number | null
-  exchangeRateSource: string | null
-  exchangeRateFetchedAt: string | null
 }
 
 /**
@@ -60,10 +49,8 @@ export type ReportDocumentData = {
   /** True when the export leaves out lines the chosen scope does contain. */
   isPartial: boolean
   lines: ReportDocumentLine[]
-  months: ReportDocumentMonth[]
   totals: ReportTotals
   salaryContext: ReportSalaryContext[]
-  warnings: ReportWarning[]
 }
 
 export type ReportDocumentInput = {
@@ -160,27 +147,6 @@ const buildSalaryContext = (
     })
 }
 
-const buildWarnings = (
-  lines: readonly ReportDocumentLine[],
-  totals: ReportTotals
-): ReportWarning[] => {
-  const warnings: ReportWarning[] = []
-
-  if (lines.some(({ line }) => line.amountIsEstimated)) {
-    warnings.push("estimated_amounts")
-  }
-
-  if (lines.some(({ line }) => line.currency === "usd")) {
-    warnings.push("reference_exchange_rate")
-  }
-
-  if (!totals.isComplete) {
-    warnings.push("incomplete_data")
-  }
-
-  return warnings
-}
-
 /**
  * Everything the PDF shows, decided without rendering anything: the document
  * component only formats and lays out this data.
@@ -198,23 +164,6 @@ export const buildReportDocumentData = (
         : null,
   }))
 
-  const months: ReportDocumentMonth[] = periodsOf(input.includedLines).map(
-    (period) => {
-      const budget = input.budgets.find(
-        (candidate) =>
-          candidate.period.year === period.year &&
-          candidate.period.month === period.month
-      )
-
-      return {
-        period,
-        exchangeRateValue: budget?.exchangeRateValue ?? null,
-        exchangeRateSource: budget?.exchangeRateSource ?? null,
-        exchangeRateFetchedAt: budget?.exchangeRateFetchedAt ?? null,
-      }
-    }
-  )
-
   // Only the included lines are added up: a partial export never shows the
   // total of the whole scope.
   const totals = computeReportTotals(input.includedLines, rates)
@@ -225,10 +174,8 @@ export const buildReportDocumentData = (
     source: input.source,
     isPartial: input.includedLines.length < input.scopeLines.length,
     lines,
-    months,
     totals,
     salaryContext: buildSalaryContext(input, rates),
-    warnings: buildWarnings(lines, totals),
   }
 }
 
