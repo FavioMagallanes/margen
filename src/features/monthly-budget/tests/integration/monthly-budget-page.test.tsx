@@ -809,6 +809,48 @@ describe("MonthlyBudgetPage: acciones sobre los gastos del mes", () => {
     expect(otherRow.getByRole("button", { name: "Eliminar" })).toBeDefined()
   })
 
+  it("pagina cada grupo por separado y no muestra controles si cabe en una página", async () => {
+    scenario.expenseOccurrences = Array.from({ length: 9 }, (_, index) => ({
+      id: `occurrence-${index + 1}`,
+      amount: 1_000,
+      installment_number: 1,
+      spending_plans: {
+        id: `plan-${index + 1}`,
+        kind: "card_purchase",
+        concept: `Compra ${index + 1}`,
+        group_label: "BBVA",
+        currency: "ars",
+        total_installments: 3,
+      },
+    }))
+    scenario.otherExpenses = [
+      {
+        id: "other-1",
+        concept: "Supermercado",
+        amount: 85_000,
+        currency: "ars",
+      },
+    ]
+
+    renderBudgetPage()
+
+    expect(await screen.findByText("Compra 1")).toBeDefined()
+    expect(screen.getByText("Compra 8")).toBeDefined()
+    expect(screen.queryByText("Compra 9")).toBeNull()
+    expect(screen.getByText("Página 1 de 2")).toBeDefined()
+
+    // The single-page group has no pagination controls at all.
+    expect(screen.getAllByRole("navigation")).toHaveLength(1)
+    expect(screen.getByText("Supermercado")).toBeDefined()
+
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }))
+
+    expect(screen.getByText("Compra 9")).toBeDefined()
+    expect(screen.queryByText("Compra 1")).toBeNull()
+    expect(screen.getByText("Página 2 de 2")).toBeDefined()
+    expect(screen.getByText("Supermercado")).toBeDefined()
+  })
+
   it("«Agregar gasto» ofrece un formulario por tipo, el lote y la generación de recurrentes", async () => {
     renderBudgetPage()
 

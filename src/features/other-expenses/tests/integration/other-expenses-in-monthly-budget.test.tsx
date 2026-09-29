@@ -274,7 +274,7 @@ describe("otros gastos desde Presupuesto", () => {
 
     expect(await screen.findByText("Supermercado")).toBeDefined()
     expect(screen.queryByText("Veterinaria")).toBeNull()
-    expect(rowOf("Supermercado").getByText("Otros gastos")).toBeDefined()
+    expect(screen.getByRole("heading", { name: "Otros gastos" })).toBeDefined()
     expect(rowOf("Supermercado").getByText(/85\.000,00/)).toBeDefined()
 
     expect(selectFiltersMock).toHaveBeenCalledWith("other_expenses", {

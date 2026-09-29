@@ -296,7 +296,7 @@ describe("compras con tarjeta desde Presupuesto", () => {
     renderBudgetPage()
 
     expect(await screen.findByText("Notebook")).toBeDefined()
-    expect(rowOf("Notebook").getByText("BBVA")).toBeDefined()
+    expect(screen.getByRole("heading", { name: "BBVA" })).toBeDefined()
     expect(rowOf("Notebook").getByText("4/6")).toBeDefined()
     expect(rowOf("Notebook").queryByText("Última cuota")).toBeNull()
     expect(rowOf("Auriculares").getByText("3/3")).toBeDefined()
