@@ -7,17 +7,18 @@ import { MonthSwitcher } from "./month-switcher"
 import { BottomNav, DesktopTabs } from "./sidebar"
 import { ThemeToggle } from "./theme-toggle"
 
-const REPORTS_PATH = "/reports"
-
 export const AppShell = () => {
   const { year, month } = useParams()
   const { pathname } = useLocation()
   const routePeriod = parsePeriod(year, month)
   // Routes without a month (Reportes) still need a period for the month links.
   const navPeriod = routePeriod ?? getCurrentPeriod()
-  // The reports table has many columns and gets cut off inside the regular
-  // reading width, so only that route gets a wider content area.
-  const contentWidth = pathname === REPORTS_PATH ? "max-w-7xl" : "max-w-5xl"
+  // Próximos meses is a plain read-only projection with fewer columns, so it
+  // keeps the regular reading width. Presupuesto and Reportes both hold wide
+  // tables that scroll horizontally inside the regular width, so they get
+  // the wider content area.
+  const isUpcomingRoute = pathname.endsWith("/upcoming")
+  const contentWidth = isUpcomingRoute ? "max-w-5xl" : "max-w-7xl"
 
   return (
     <div className="min-h-svh bg-background text-foreground">

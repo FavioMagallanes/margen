@@ -103,88 +103,90 @@ export const MonthlyBudgetPage = () => {
   return (
     <div className="flex flex-col gap-6">
       <Card>
-        <CardContent className="flex flex-col gap-2">
-          <p className="text-xs text-muted-foreground">
-            Sueldo de {formatPeriodLabel(period)}
-          </p>
+        <CardContent className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="flex flex-col gap-2">
+            <p className="text-xs text-muted-foreground">
+              Sueldo de {formatPeriodLabel(period)}
+            </p>
 
-          {showSalaryForm ? (
-            <SalaryForm
-              key={salaryArs === null ? "sin-sueldo" : String(salaryArs)}
-              defaultSalary={
-                salaryArs === null ? "" : formatSalaryInput(salaryArs)
-              }
-              isSaving={saveSalary.isLoading}
-              hasFailed={saveSalary.isError}
-              onSave={(nextSalaryArs) =>
-                saveSalary.mutate(
-                  { period, salaryArs: nextSalaryArs },
-                  { onSuccess: () => setIsEditingSalary(false) }
-                )
-              }
-              onCancel={
-                salaryArs === null ? undefined : () => setIsEditingSalary(false)
-              }
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => setIsEditingSalary(true)}
-              className="w-fit rounded-sm font-mono text-xl font-semibold tracking-tight text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/30"
-            >
-              {formatArs(salaryArs as number)}
-            </button>
-          )}
-
-          {canCopyPreviousSalary ? (
-            <div>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={saveSalary.isLoading}
-                onClick={() =>
-                  saveSalary.mutate({ period, salaryArs: previousSalaryArs })
+            {showSalaryForm ? (
+              <SalaryForm
+                key={salaryArs === null ? "sin-sueldo" : String(salaryArs)}
+                defaultSalary={
+                  salaryArs === null ? "" : formatSalaryInput(salaryArs)
                 }
+                isSaving={saveSalary.isLoading}
+                hasFailed={saveSalary.isError}
+                onSave={(nextSalaryArs) =>
+                  saveSalary.mutate(
+                    { period, salaryArs: nextSalaryArs },
+                    { onSuccess: () => setIsEditingSalary(false) }
+                  )
+                }
+                onCancel={
+                  salaryArs === null
+                    ? undefined
+                    : () => setIsEditingSalary(false)
+                }
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsEditingSalary(true)}
+                className="w-fit rounded-sm font-mono text-xl font-semibold tracking-tight text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/30"
               >
-                Copiar sueldo del mes anterior
-              </Button>
-            </div>
-          ) : null}
-        </CardContent>
+                {formatArs(salaryArs as number)}
+              </button>
+            )}
 
-        <CardContent className="flex flex-col gap-1">
-          <p className="text-xs text-muted-foreground">
-            Gastos conocidos del mes
-          </p>
-          <p className="font-mono text-xl font-semibold tracking-tight text-foreground">
-            {formatArs(totalKnownArs)}
-          </p>
-        </CardContent>
+            {canCopyPreviousSalary ? (
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={saveSalary.isLoading}
+                  onClick={() =>
+                    saveSalary.mutate({ period, salaryArs: previousSalaryArs })
+                  }
+                >
+                  Copiar sueldo del mes anterior
+                </Button>
+              </div>
+            ) : null}
+          </div>
 
-        <CardContent className="flex flex-col gap-1">
-          <p className="text-xs text-muted-foreground">
-            Disponible del presupuesto
-          </p>
-
-          {salaryArs === null ? (
-            // RF-01: without a salary there is no definitive available figure.
-            <p className="text-base text-foreground">
-              Cargá el sueldo del mes para ver el disponible.
+          <div className="flex flex-col gap-1">
+            <p className="text-xs text-muted-foreground">
+              Gastos conocidos del mes
             </p>
-          ) : (
-            <p className="font-mono text-4xl font-semibold tracking-tight text-primary">
-              {formatArs(new Decimal(salaryArs).minus(totalKnownArs))}
+            <p className="font-mono text-xl font-semibold tracking-tight text-foreground">
+              {formatArs(totalKnownArs)}
             </p>
-          )}
+          </div>
 
-          {isComplete ? null : (
-            <Alert className="mt-1">
-              <AlertDescription>{INCOMPLETE_TOTAL_MESSAGE}</AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
+          <div className="flex flex-col gap-1">
+            <p className="text-xs text-muted-foreground">
+              Disponible del presupuesto
+            </p>
 
-        <CardContent>
+            {salaryArs === null ? (
+              // RF-01: without a salary there is no definitive available figure.
+              <p className="text-base text-foreground">
+                Cargá el sueldo del mes para ver el disponible.
+              </p>
+            ) : (
+              <p className="font-mono text-4xl font-semibold tracking-tight text-primary">
+                {formatArs(new Decimal(salaryArs).minus(totalKnownArs))}
+              </p>
+            )}
+
+            {isComplete ? null : (
+              <Alert className="mt-1">
+                <AlertDescription>{INCOMPLETE_TOTAL_MESSAGE}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+
           <ExchangeRatePanel
             userId={userId}
             period={period}
