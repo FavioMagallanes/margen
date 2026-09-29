@@ -1,6 +1,6 @@
 # Especificación funcional — App personal de presupuesto y gastos
 
-**Versión:** 1.5  
+**Versión:** 1.6  
 **Fecha:** 29 de septiembre de 2026  
 **Nombre de la aplicación:** Margen.  
 **Estado:** base funcional para desarrollar y seguir iterando el producto.
@@ -81,7 +81,7 @@ El grupo al que pertenece un gasto y su forma de repetirse son independientes. U
 
 La app abre por defecto en el mes de trabajo (mes calendario real + 1), no en el mes calendario real; el botón «Hoy» lleva a ese mismo mes. Reportes (RF-10) es la excepción explícita: sigue anclado al mes calendario real.
 
-El usuario puede consultar meses anteriores, el de trabajo y meses futuros; ingresar o modificar el sueldo de un mes; y ver sus gastos y disponible.
+El usuario puede consultar meses anteriores, el de trabajo y meses futuros; ingresar o modificar el sueldo de un mes; y ver sus gastos y disponible. La flecha «Mes anterior» del selector se deshabilita al llegar al mes calendario real (no deja retroceder a un mes que ya pasó por defecto), pero esto no bloquea entrar directamente a la página de un mes pasado por otro medio (por ejemplo, un enlace guardado): la consulta de historial viejo no se pierde, solo deja de ofrecerse como navegación casual.
 
 **Regla principal:**
 
@@ -437,6 +437,13 @@ página, sin excepción (viendo Septiembre dice «A pagar en Octubre»;
 viendo Octubre dice «A pagar en Noviembre», aunque esa sea la página que
 abre por defecto). El sueldo mostrado sigue siendo el de la página real,
 sin corrimiento.
+
+**Cambio v1.6:** por pedido explícito del usuario, la flecha «Mes
+anterior» del selector de mes (RF-01) se deshabilita al llegar al mes
+calendario real, para no invitar a retroceder a un mes que ya pasó.
+Esto no bloquea entrar directamente a un mes pasado por otro medio (un
+enlace guardado, por ejemplo): la posibilidad de consultar historial
+viejo no se pierde, sólo se deja de ofrecer como navegación casual.
 
 ## 16. RF-13 — Acceso privado y uso en dos dispositivos
 

@@ -5,6 +5,7 @@ import {
   formatPeriodLabel,
   getCurrentPeriod,
   getWorkingPeriod,
+  isPeriodBefore,
   isSamePeriod,
   parsePeriod,
 } from "@/shared/lib/period"
@@ -78,6 +79,29 @@ describe("isSamePeriod", () => {
     ).toBe(true)
     expect(
       isSamePeriod({ year: 2026, month: 9 }, { year: 2025, month: 9 })
+    ).toBe(false)
+  })
+})
+
+describe("isPeriodBefore", () => {
+  it("es true cuando el mes es anterior dentro del mismo año", () => {
+    expect(
+      isPeriodBefore({ year: 2026, month: 8 }, { year: 2026, month: 9 })
+    ).toBe(true)
+  })
+
+  it("es true cuando el año es anterior, sin importar el mes", () => {
+    expect(
+      isPeriodBefore({ year: 2025, month: 12 }, { year: 2026, month: 1 })
+    ).toBe(true)
+  })
+
+  it("es false cuando el período es igual o posterior", () => {
+    expect(
+      isPeriodBefore({ year: 2026, month: 9 }, { year: 2026, month: 9 })
+    ).toBe(false)
+    expect(
+      isPeriodBefore({ year: 2026, month: 10 }, { year: 2026, month: 9 })
     ).toBe(false)
   })
 })

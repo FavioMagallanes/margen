@@ -12,7 +12,9 @@ import type { Period } from "@/shared/lib/period"
 import {
   addMonths,
   formatPeriodLabel,
+  getCurrentPeriod,
   getWorkingPeriod,
+  isPeriodBefore,
   isSamePeriod,
 } from "@/shared/lib/period"
 
@@ -35,6 +37,14 @@ export const MonthSwitcher = ({ period }: MonthSwitcherProps) => {
   // "Hoy" targets the working month (real calendar month + 1), same as the
   // router redirect, since that is the month the user is loading expenses for.
   const workingPeriod = getWorkingPeriod()
+  // A month before the real current one has already happened: the arrow
+  // stops there so browsing does not casually wander into settled history,
+  // while a saved link to an old month still opens it if the user wants to.
+  const previousPeriod = addMonths(period, -1)
+  const canGoToPreviousMonth = !isPeriodBefore(
+    previousPeriod,
+    getCurrentPeriod()
+  )
 
   const goToPeriod = (nextPeriod: Period) => {
     void navigate(buildMonthPath(pathname, nextPeriod))
@@ -46,7 +56,8 @@ export const MonthSwitcher = ({ period }: MonthSwitcherProps) => {
         variant="ghost"
         size="icon-sm"
         aria-label="Mes anterior"
-        onClick={() => goToPeriod(addMonths(period, -1))}
+        disabled={!canGoToPreviousMonth}
+        onClick={() => goToPeriod(previousPeriod)}
       >
         <HugeiconsIcon icon={ArrowLeft01FreeIcons} size={16} />
       </Button>

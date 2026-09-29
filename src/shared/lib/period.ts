@@ -26,6 +26,14 @@ export const addMonths = (period: Period, amount: number): Period => {
 export const getWorkingPeriod = (now: Date = new Date()): Period =>
   addMonths(getCurrentPeriod(now), 1)
 
+// A single absolute ordering for periods, so callers can compare "earlier"
+// without reimplementing year/month arithmetic themselves.
+const toAbsoluteMonthIndex = (period: Period): number =>
+  period.year * MONTHS_PER_YEAR + (period.month - 1)
+
+export const isPeriodBefore = (period: Period, other: Period): boolean =>
+  toAbsoluteMonthIndex(period) < toAbsoluteMonthIndex(other)
+
 export const isSamePeriod = (left: Period, right: Period) =>
   left.year === right.year && left.month === right.month
 
