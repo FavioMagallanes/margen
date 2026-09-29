@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { AuthProvider } from "@/features/auth/auth-provider"
 import { createFakeSession } from "@/features/auth/tests/fixtures/session"
+import { CLEAR_MONTH_ERROR_MESSAGE } from "@/features/monthly-budget/api/monthly-budget-mutations"
 import { MonthlyBudgetPage } from "@/features/monthly-budget/monthly-budget-page"
 
 type BudgetRow = {
@@ -23,7 +24,7 @@ type BudgetRow = {
   exchange_rate_source_updated_at?: string | null
 }
 
-const { authMock, fromMock, upsertMock, scenario } = vi.hoisted(() => {
+const { authMock, fromMock, rpcMock, upsertMock, scenario } = vi.hoisted(() => {
   type QueryResult = { data: unknown; error: { message: string } | null }
 
   type StoredBudget = {
@@ -51,6 +52,7 @@ const { authMock, fromMock, upsertMock, scenario } = vi.hoisted(() => {
     otherExpenses: [] as unknown[],
     failingTable: null as string | null,
     upsertError: null as { message: string } | null,
+    rpcError: null as { message: string } | null,
   }
 
   const budgetKey = (year: unknown, month: unknown) => `${year}-${month}`
@@ -175,13 +177,16 @@ const { authMock, fromMock, upsertMock, scenario } = vi.hoisted(() => {
       signOut: vi.fn(),
     },
     fromMock: vi.fn((table: string) => createBuilder(table)),
+    rpcMock: vi.fn(() =>
+      Promise.resolve({ data: null, error: scenario.rpcError })
+    ),
     upsertMock,
     scenario,
   }
 })
 
 vi.mock("@/shared/lib/supabase/client", () => ({
-  supabase: { auth: authMock, from: fromMock },
+  supabase: { auth: authMock, from: fromMock, rpc: rpcMock },
 }))
 
 const setBudget = (year: number, month: number, row: BudgetRow) => {
@@ -227,6 +232,7 @@ describe("MonthlyBudgetPage", () => {
     scenario.otherExpenses = []
     scenario.failingTable = null
     scenario.upsertError = null
+    scenario.rpcError = null
 
     authMock.getSession.mockResolvedValue({
       data: { session: createFakeSession() },
@@ -656,6 +662,73 @@ describe("MonthlyBudgetPage", () => {
   })
 })
 
+describe("MonthlyBudgetPage: Limpiar todo", () => {
+  afterEach(cleanup)
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    scenario.budgets.clear()
+    scenario.expenseOccurrences = []
+    scenario.otherExpenses = []
+    scenario.failingTable = null
+    scenario.upsertError = null
+    scenario.rpcError = null
+
+    authMock.getSession.mockResolvedValue({
+      data: { session: createFakeSession() },
+      error: null,
+    })
+    authMock.onAuthStateChange.mockReturnValue({
+      data: { subscription: { unsubscribe: vi.fn() } },
+    })
+  })
+
+  const openClearDialog = async () => {
+    renderBudgetPage()
+    fireEvent.click(await screen.findByRole("button", { name: "Limpiar todo" }))
+
+    return screen.findByRole("alertdialog")
+  }
+
+  it("avisa el mes y que se borran los planes completos", async () => {
+    const dialog = await openClearDialog()
+
+    expect(within(dialog).getAllByText(/marzo de 2026/i).length).toBe(2)
+    expect(within(dialog).getByText(/plan completo/i)).toBeDefined()
+    expect(within(dialog).getByText(/no se puede deshacer/i)).toBeDefined()
+  })
+
+  it("al confirmar llama a clear_month con el período visto y cierra el diálogo", async () => {
+    const dialog = await openClearDialog()
+
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Sí, limpiar todo" })
+    )
+
+    await waitFor(() =>
+      expect(rpcMock).toHaveBeenCalledWith("clear_month", {
+        p_year: 2026,
+        p_month: 3,
+      })
+    )
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+  })
+
+  it("si falla muestra el error sin cerrar el diálogo", async () => {
+    scenario.rpcError = { message: "boom" }
+    const dialog = await openClearDialog()
+
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Sí, limpiar todo" })
+    )
+
+    expect(
+      await within(dialog).findByText(CLEAR_MONTH_ERROR_MESSAGE)
+    ).toBeDefined()
+    expect(screen.queryByRole("alertdialog")).not.toBeNull()
+  })
+})
+
 describe("MonthlyBudgetPage: acciones sobre los gastos del mes", () => {
   // Vitest runs without globals, so Testing Library's auto cleanup is not registered.
   afterEach(cleanup)
@@ -667,6 +740,7 @@ describe("MonthlyBudgetPage: acciones sobre los gastos del mes", () => {
     scenario.otherExpenses = []
     scenario.failingTable = null
     scenario.upsertError = null
+    scenario.rpcError = null
 
     authMock.getSession.mockResolvedValue({
       data: { session: createFakeSession() },

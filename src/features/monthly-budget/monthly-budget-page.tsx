@@ -4,6 +4,17 @@ import { useParams } from "react-router"
 import { Decimal } from "decimal.js"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -16,7 +27,11 @@ import {
   parsePeriod,
 } from "@/shared/lib/period"
 
-import { useSaveSalaryMutation } from "./api/monthly-budget-mutations"
+import {
+  CLEAR_MONTH_ERROR_MESSAGE,
+  useClearMonthMutation,
+  useSaveSalaryMutation,
+} from "./api/monthly-budget-mutations"
 import {
   useMonthExpenseLinesQuery,
   useMonthlyBudgetQuery,
@@ -46,10 +61,12 @@ export const MonthlyBudgetPage = () => {
   const expenseLinesQuery = useMonthExpenseLinesQuery(userId, period)
   const previousBudgetQuery = useMonthlyBudgetQuery(userId, previousPeriod)
   const saveSalary = useSaveSalaryMutation(userId)
+  const clearMonth = useClearMonthMutation(userId)
 
   const periodKey = `${period.year}-${period.month}`
   const [lastPeriodKey, setLastPeriodKey] = useState(periodKey)
   const [isEditingSalary, setIsEditingSalary] = useState(false)
+  const [isConfirmingClear, setIsConfirmingClear] = useState(false)
 
   // Switching months should never leave a stale edit form open for a
   // different period's salary (React's "adjust state during render" pattern,
@@ -58,6 +75,7 @@ export const MonthlyBudgetPage = () => {
   if (periodKey !== lastPeriodKey) {
     setLastPeriodKey(periodKey)
     setIsEditingSalary(false)
+    setIsConfirmingClear(false)
   }
 
   if (budgetQuery.isError || expenseLinesQuery.isError) {
@@ -212,7 +230,57 @@ export const MonthlyBudgetPage = () => {
           </p>
         </div>
 
-        <AddExpenseMenu period={period} />
+        <div className="flex items-center gap-2">
+          <AlertDialog
+            open={isConfirmingClear}
+            onOpenChange={(open) => setIsConfirmingClear(open)}
+          >
+            <AlertDialogTrigger
+              render={<Button type="button" variant="destructive" />}
+            >
+              Limpiar todo
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  ¿Limpiar todo {formatPeriodLabel(period)}?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  Se borra el sueldo de {formatPeriodLabel(period)} y todos los
+                  gastos de ese mes. Si alguno es una cuota de un plan de varios
+                  meses (compra con tarjeta, préstamo o recurrente), se borra el
+                  plan completo: todas sus cuotas, pasadas y futuras, no solo la
+                  de este mes. Esta acción no se puede deshacer.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+
+              {clearMonth.isError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {CLEAR_MONTH_ERROR_MESSAGE}
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  variant="destructive"
+                  disabled={clearMonth.isLoading}
+                  onClick={() =>
+                    clearMonth.mutate(period, {
+                      onSuccess: () => setIsConfirmingClear(false),
+                    })
+                  }
+                >
+                  Sí, limpiar todo
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <AddExpenseMenu period={period} />
+        </div>
       </div>
 
       <MonthExpenses

@@ -1,5 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
+import { cardPurchaseKeys } from "@/features/card-purchases/api/card-purchase-queries"
+import { loanKeys } from "@/features/loans/api/loan-queries"
+import { otherExpenseKeys } from "@/features/other-expenses/api/other-expense-queries"
+import { recurringKeys } from "@/features/recurring-expenses/api/recurring-expense-queries"
 import { fetchTarjetaExchangeRate } from "@/shared/lib/exchange-rate-api"
 import type { Period } from "@/shared/lib/period"
 import { supabase } from "@/shared/lib/supabase/client"
@@ -14,6 +18,14 @@ export const FETCH_EXCHANGE_RATE_ERROR_MESSAGE =
 
 export const SAVE_EXCHANGE_RATE_ERROR_MESSAGE =
   "No pudimos guardar la cotización. Intentá de nuevo en un momento."
+
+export const CLEAR_MONTH_ERROR_MESSAGE =
+  "No pudimos limpiar el mes. Intentá de nuevo en un momento."
+
+type ClearMonthRpc = (
+  fn: "clear_month",
+  args: { p_year: number; p_month: number }
+) => PromiseLike<{ error: { message: string } | null }>
 
 export type SaveSalaryInput = {
   period: Period
@@ -133,6 +145,51 @@ export const useSaveExchangeRateMutation = (userId: string | null) => {
       void queryClient.invalidateQueries({
         queryKey: monthlyBudgetKeys.budget(userId, period),
       })
+    },
+  })
+}
+
+export const useClearMonthMutation = (userId: string | null) => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (period: Period) => {
+      if (userId === null) {
+        throw new Error("Cannot clear a month without an authenticated user")
+      }
+
+      // clear_month is not in the generated types until they are regenerated
+      // after the migration is applied, so the call is typed by hand.
+      const callClearMonth = supabase.rpc.bind(supabase) as ClearMonthRpc
+      const { error } = await callClearMonth("clear_month", {
+        p_year: period.year,
+        p_month: period.month,
+      })
+
+      if (error) {
+        throw new Error(CLEAR_MONTH_ERROR_MESSAGE)
+      }
+    },
+    onSuccess: () => {
+      if (userId === null) {
+        return
+      }
+
+      // Clearing a month deletes whole plans, so months other than the cleared
+      // one change too (past and future installments). Everything derived from
+      // expenses is invalidated for this user, whatever the month.
+      for (const queryKey of [
+        // These features expose no per-user key, so use their user prefix.
+        ["monthly-budget", userId],
+        ["reports", userId],
+        ["upcoming-expenses", userId],
+        cardPurchaseKeys.byUser(userId),
+        loanKeys.byUser(userId),
+        recurringKeys.byUser(userId),
+        otherExpenseKeys.byUser(userId),
+      ]) {
+        void queryClient.invalidateQueries({ queryKey })
+      }
     },
   })
 }
