@@ -270,6 +270,12 @@ export const LoanLineActions = ({
   const userId = session?.user.id ?? null
 
   const deleteLoan = useDeleteLoanMutation(userId)
+  const pendingInstallmentsQuery = usePendingLoanInstallmentsQuery(userId)
+  // Once every installment of this plan already has an amount, there is
+  // nothing left to complete, so the action stops offering it.
+  const hasPendingInstallments = (pendingInstallmentsQuery.data ?? []).some(
+    (installment) => installment.planId === planId
+  )
 
   const [openDialog, setOpenDialog] = useState<"none" | "edit" | "amounts">(
     "none"
@@ -282,14 +288,16 @@ export const LoanLineActions = ({
 
   return (
     <span className="flex items-center justify-end gap-2">
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        onClick={() => setOpenDialog("amounts")}
-      >
-        Completar próximas cuotas
-      </Button>
+      {hasPendingInstallments ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => setOpenDialog("amounts")}
+        >
+          Completar próximas cuotas
+        </Button>
+      ) : null}
 
       <Button
         type="button"

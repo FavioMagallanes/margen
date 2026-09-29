@@ -483,6 +483,24 @@ describe("préstamos desde Presupuesto", () => {
     })
   })
 
+  it("deja de ofrecer completar cuotas cuando el préstamo ya no tiene pendientes", async () => {
+    setOccurrences([currentInstallment])
+
+    renderBudgetPage()
+
+    expect(
+      await within(
+        await screen.findByRole("row", { name: /Préstamo personal/ })
+      ).findByRole("button", { name: "Editar" })
+    ).toBeDefined()
+
+    expect(
+      within(
+        screen.getByRole("row", { name: /Préstamo personal/ })
+      ).queryByRole("button", { name: "Completar próximas cuotas" })
+    ).toBeNull()
+  })
+
   it("no guarda el lote si todas las cuotas quedaron vacías", async () => {
     setOccurrences([currentInstallment, nextInstallment])
 
