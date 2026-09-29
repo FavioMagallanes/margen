@@ -1,6 +1,6 @@
 # Especificación funcional — App personal de presupuesto y gastos
 
-**Versión:** 1.7  
+**Versión:** 1.8  
 **Fecha:** 29 de septiembre de 2026  
 **Nombre de la aplicación:** Margen.  
 **Estado:** base funcional para desarrollar y seguir iterando el producto.
@@ -303,6 +303,17 @@ Eliminar u omitir una aparición no debe provocar su recreación al volver a abr
 Cambiar estructuras de un plan ya cargado —por ejemplo, desplazar todas las cuotas a otro mes o modificar su cantidad total— requiere resolver primero las reglas pendientes de la sección 19. No debe sobrescribir historial por una suposición.
 
 No existe una acción de «Registrar pago del resumen» que vuelva a descontar sus consumos.
+
+**Cambio v1.8:** por pedido explícito del usuario, Presupuesto suma una
+acción «Limpiar todo» que borra de una vez el sueldo y todos los gastos
+del mes que se está viendo, con una confirmación previa que explica su
+alcance exacto. A diferencia de las acciones habituales de esta
+sección, esto no es un alcance «solo este mes»: si un gasto de ese mes
+es una cuota de un plan de varias cuotas (compra con tarjeta, préstamo
+o recurrente), se borra el **plan completo** — todas sus cuotas,
+pasadas y futuras —, no solo la ocurrencia de ese mes. Los gastos sin
+plan (otros gastos) sólo se borran para ese mes puntual. La
+cotización del mes no se toca. Es irreversible.
 
 ## 12. RF-09 — Carga rápida y carga de varios gastos
 
