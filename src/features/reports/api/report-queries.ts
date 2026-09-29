@@ -60,7 +60,7 @@ export const fetchReportExpenseLines = async (
   const occurrencesQuery = supabase
     .from("expense_occurrences")
     .select(
-      "id, amount, installment_number, year, month, spending_plans(concept, group_label, currency, total_installments, kind)"
+      "id, amount, amount_is_estimated, installment_number, year, month, spending_plans(concept, group_label, currency, total_installments, kind)"
     )
     // RF-05: a skipped recurring month is an explicit absence, not a line
     // waiting for its amount, so it never reaches a report either.
@@ -103,6 +103,7 @@ export const fetchReportExpenseLines = async (
       year: row.year,
       month: row.month,
       kind: toReportKind(row.spending_plans?.kind),
+      amountIsEstimated: row.amount_is_estimated,
     }))
 
   const otherLines: ReportExpenseLine[] = (others.data ?? [])
@@ -118,8 +119,10 @@ export const fetchReportExpenseLines = async (
       currency: row.currency,
       year: row.year,
       month: row.month,
-      // Other expenses have no plan, so they carry no stored kind.
+      // Other expenses have no plan, so they carry no stored kind and no
+      // estimated flag: their amount is always the one that was loaded.
       kind: "other" as const,
+      amountIsEstimated: false,
     }))
 
   return [...planLines, ...otherLines]

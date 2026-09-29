@@ -11,5 +11,6 @@ export const createReportLine = (
   year: 2026,
   month: 3,
   kind: "card_purchase",
+  amountIsEstimated: false,
   ...overrides,
 })

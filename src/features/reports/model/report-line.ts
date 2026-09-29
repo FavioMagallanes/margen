@@ -18,6 +18,8 @@ export type ReportExpenseLine = ExpenseLine & {
   year: number
   month: number
   kind: ReportExpenseKind
+  /** RF-05: a variable amount carried over from another month is estimated. */
+  amountIsEstimated: boolean
 }
 
 export const linePeriod = (line: ReportExpenseLine): Period => ({
