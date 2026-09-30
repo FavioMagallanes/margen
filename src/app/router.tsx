@@ -1,6 +1,8 @@
 import { createBrowserRouter, redirect } from "react-router"
 
 import { AppShell } from "@/app/layout/app-shell"
+import { NotFoundPage } from "@/app/pages/not-found-page"
+import { RouteErrorPage } from "@/app/pages/route-error-page"
 import { GuestOnlyRoute } from "@/features/auth/components/guest-only-route"
 import { LoginPage } from "@/features/auth/components/login-page"
 import { RequireAuth } from "@/features/auth/components/require-auth"
@@ -19,35 +21,54 @@ const redirectToCurrentMonth = () => {
 }
 
 export const router = createBrowserRouter([
-  { path: "/", loader: redirectToCurrentMonth },
   {
-    path: "/login",
-    element: (
-      <GuestOnlyRoute>
-        <LoginPage />
-      </GuestOnlyRoute>
-    ),
-  },
-  {
-    // Everything below this layout route requires a Supabase session (RF-13).
-    element: <RequireAuth />,
+    // Last-resort boundary: covers errors in the shell itself and in the
+    // routes outside it, so a crash never leaves a blank page.
+    errorElement: <RouteErrorPage />,
     children: [
+      { path: "/", loader: redirectToCurrentMonth },
       {
-        path: "/months/:year/:month",
-        element: <AppShell />,
+        path: "/login",
+        element: (
+          <GuestOnlyRoute>
+            <LoginPage />
+          </GuestOnlyRoute>
+        ),
+      },
+      {
+        // Everything below this layout route requires a Supabase session (RF-13).
+        element: <RequireAuth />,
         children: [
-          // Loading, editing and deleting every kind of expense happens in the
-          // budget itself, so the month has no other page of its own.
-          { index: true, element: <MonthlyBudgetPage /> },
-          { path: "upcoming", element: <UpcomingExpensesPage /> },
+          {
+            path: "/months/:year/:month",
+            element: <AppShell />,
+            children: [
+              {
+                // A page that crashes keeps the shell (navigation) around it.
+                errorElement: <RouteErrorPage fullScreen={false} />,
+                children: [
+                  // Loading, editing and deleting every kind of expense happens in the
+                  // budget itself, so the month has no other page of its own.
+                  { index: true, element: <MonthlyBudgetPage /> },
+                  { path: "upcoming", element: <UpcomingExpensesPage /> },
+                ],
+              },
+            ],
+          },
+          {
+            // Reports span a range of months (RF-11), so they stay outside the month layout.
+            path: "/reports",
+            element: <AppShell />,
+            children: [
+              {
+                errorElement: <RouteErrorPage fullScreen={false} />,
+                children: [{ index: true, element: <ReportsPage /> }],
+              },
+            ],
+          },
         ],
       },
-      {
-        // Reports span a range of months (RF-11), so they stay outside the month layout.
-        path: "/reports",
-        element: <AppShell />,
-        children: [{ index: true, element: <ReportsPage /> }],
-      },
+      { path: "*", element: <NotFoundPage /> },
     ],
   },
 ])

@@ -16,3 +16,17 @@ test("la home sin sesión redirige al login y muestra el formulario", async ({
   await expect(page.getByLabel("Contraseña")).toBeVisible()
   await expect(page.getByRole("button", { name: "Ingresar" })).toBeVisible()
 })
+
+test("una ruta desconocida muestra la página 404 y vuelve al inicio", async ({
+  page,
+}) => {
+  await page.goto("/esta-ruta-no-existe")
+
+  await expect(
+    page.getByRole("heading", { name: "Página no encontrada" })
+  ).toBeVisible()
+
+  await page.getByRole("link", { name: "Ir al inicio" }).click()
+
+  await expect(page).toHaveURL(/\/login$/)
+})
