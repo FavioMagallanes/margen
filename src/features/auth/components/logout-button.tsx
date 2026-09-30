@@ -11,11 +11,11 @@ export const LogoutButton = () => {
   return (
     <Button
       variant="ghost"
-      size="icon-sm"
+      size="icon-lg"
       aria-label="Cerrar sesión"
       onClick={() => void signOut()}
     >
-      <HugeiconsIcon icon={Logout01FreeIcons} size={16} />
+      <HugeiconsIcon icon={Logout01FreeIcons} size={20} className="size-5" />
     </Button>
   )
 }

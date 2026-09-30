@@ -11,13 +11,14 @@ export const ThemeToggle = () => {
   return (
     <Button
       variant="ghost"
-      size="icon-sm"
+      size="icon-lg"
       aria-label={isDark ? "Cambiar a tema claro" : "Cambiar a tema oscuro"}
       onClick={() => setTheme(isDark ? "light" : "dark")}
     >
       <HugeiconsIcon
         icon={isDark ? Sun01FreeIcons : Moon02FreeIcons}
-        size={16}
+        size={20}
+        className="size-5"
       />
     </Button>
   )
