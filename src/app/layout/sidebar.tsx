@@ -66,6 +66,7 @@ export const DesktopTabs = ({ period }: NavProps) => {
           <TabsTab
             key={item.label}
             value={item.label}
+            nativeButton={false}
             render={<NavLink to={item.buildPath(period)} end={item.end} />}
             className="h-11 flex-none rounded-none px-4 text-sm data-selected:bg-transparent data-selected:text-primary data-selected:shadow-none"
           >
