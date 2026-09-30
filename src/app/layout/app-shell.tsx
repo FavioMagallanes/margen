@@ -1,7 +1,13 @@
+import { useState } from "react"
 import { Outlet, useLocation, useParams } from "react-router"
 
 import { LogoutButton } from "@/features/auth/components/logout-button"
-import { getWorkingPeriod, parsePeriod } from "@/shared/lib/period"
+import {
+  getWorkingPeriod,
+  isSamePeriod,
+  parsePeriod,
+  type Period,
+} from "@/shared/lib/period"
 
 import { MonthSwitcher } from "./month-switcher"
 import { BottomNav, DesktopTabs } from "./sidebar"
@@ -12,10 +18,18 @@ export const AppShell = () => {
   const { pathname } = useLocation()
   const routePeriod = parsePeriod(year, month)
   // Routes without a month (Reportes) still need a period for the month
-  // links. Presupuesto/Próximos meses default to the working month (real
-  // calendar month + 1), so the nav links land there too, not on the real
-  // calendar month.
-  const navPeriod = routePeriod ?? getWorkingPeriod()
+  // links, but it must be wherever the user was last browsing, not always
+  // the working month — otherwise leaving Presupuesto in Septiembre and
+  // visiting Reportes, then coming back, would silently jump you to Octubre.
+  const [rememberedPeriod, setRememberedPeriod] = useState<Period>(
+    () => routePeriod ?? getWorkingPeriod()
+  )
+
+  if (routePeriod !== null && !isSamePeriod(routePeriod, rememberedPeriod)) {
+    setRememberedPeriod(routePeriod)
+  }
+
+  const navPeriod = routePeriod ?? rememberedPeriod
   // Próximos meses is a plain read-only projection with fewer columns, so it
   // keeps the regular reading width. Presupuesto and Reportes both hold wide
   // tables that scroll horizontally inside the regular width, so they get
