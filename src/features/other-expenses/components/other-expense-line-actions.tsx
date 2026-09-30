@@ -124,7 +124,7 @@ const OtherExpenseEditDialog = ({
             defaultValues={buildEditDefaults(row)}
             conceptSuggestions={conceptsQuery.data ?? []}
             period={period}
-            isSaving={updateOtherExpense.isLoading}
+            isSaving={updateOtherExpense.isPending}
             errorMessage={
               updateOtherExpense.isError ? UPDATE_ERROR_MESSAGE : null
             }
@@ -209,7 +209,7 @@ export const OtherExpenseLineActions = ({
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
-              disabled={deleteOtherExpense.isLoading}
+              disabled={deleteOtherExpense.isPending}
               onClick={() =>
                 deleteOtherExpense.mutate(expenseId, {
                   onSuccess: () => setIsConfirmingDelete(false),
