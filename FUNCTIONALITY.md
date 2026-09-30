@@ -1,6 +1,6 @@
 # Especificación funcional — App personal de presupuesto y gastos
 
-**Versión:** 1.8  
+**Versión:** 1.9  
 **Fecha:** 29 de septiembre de 2026  
 **Nombre de la aplicación:** Margen.  
 **Estado:** base funcional para desarrollar y seguir iterando el producto.
@@ -487,6 +487,8 @@ La aplicación debe permitir cargar, editar, revisar cuotas, seleccionar gastos 
 - ARS y USD como únicas monedas iniciales; préstamos solo en ARS.
 - Cotizaciones mayores que cero y con su precisión conservada para el cálculo.
 - Presentación de números y fechas adecuada a español de Argentina. La entrada debe explicar el formato y evitar interpretar silenciosamente un separador ambiguo.
+- Una dirección que no existe muestra una página «Página no encontrada» con un enlace para volver al inicio.
+- Un error inesperado al mostrar una pantalla se informa con un mensaje genérico en español, con opciones para reintentar o volver al inicio, sin mostrar el detalle técnico. Si ocurre dentro de una sección, la navegación se conserva.
 - Un error al guardar no presenta el gasto como persistido.
 - Un reintento o doble activación de «Guardar» no crea duplicados del mismo envío.
 - Las operaciones de solo consulta no cambian cotizaciones, importes ni historial.
