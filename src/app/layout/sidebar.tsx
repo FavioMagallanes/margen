@@ -59,9 +59,9 @@ export const DesktopTabs = ({ period }: NavProps) => {
     <Tabs
       value={activeItem?.label ?? null}
       render={<nav aria-label="Navegación principal" />}
-      className="hidden border-b border-border px-8 lg:flex"
+      className="hidden gap-0 lg:block"
     >
-      <TabsList className="h-11 gap-1 bg-transparent p-0">
+      <TabsList className="mx-auto flex h-11 w-full max-w-7xl gap-1 bg-transparent px-8 py-0">
         {NAV_ITEMS.map((item) => (
           <TabsTab
             key={item.label}

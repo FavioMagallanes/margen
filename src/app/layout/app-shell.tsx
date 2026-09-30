@@ -10,6 +10,7 @@ import {
 } from "@/shared/lib/period"
 
 import { MonthSwitcher } from "./month-switcher"
+import { GuideRule, PageGuides } from "./page-guides"
 import { BottomNav, DesktopTabs } from "./sidebar"
 import { ThemeToggle } from "./theme-toggle"
 
@@ -38,34 +39,43 @@ export const AppShell = () => {
   const contentWidth = isUpcomingRoute ? "max-w-5xl" : "max-w-7xl"
 
   return (
-    <div className="min-h-svh bg-background text-foreground">
+    <div className="relative min-h-svh bg-background text-foreground">
+      <PageGuides />
+
       <div>
-        <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b border-border bg-background/80 px-4 backdrop-blur lg:px-8">
-          <span className="flex items-center gap-2">
-            <img
-              src="/margen-web.svg"
-              alt=""
-              aria-hidden="true"
-              className="size-6 rounded-[0.3rem]"
-            />
-            <span className="text-sm font-semibold tracking-tight">Margen</span>
-          </span>
+        <div className="sticky top-0 z-10 bg-background/80 backdrop-blur">
+          <header className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between gap-4 px-4 lg:px-8">
+            <span className="flex items-center gap-2">
+              <img
+                src="/margen-web.svg"
+                alt=""
+                aria-hidden="true"
+                className="size-6 rounded-[0.3rem]"
+              />
+              <span className="text-sm font-semibold tracking-tight">
+                Margen
+              </span>
+            </span>
 
-          {routePeriod ? <MonthSwitcher period={routePeriod} /> : <span />}
+            {routePeriod ? <MonthSwitcher period={routePeriod} /> : <span />}
 
-          <div className="flex items-center gap-1">
-            <LogoutButton />
-            <ThemeToggle />
-          </div>
-        </header>
+            <div className="flex items-center gap-1">
+              <LogoutButton />
+              <ThemeToggle />
+            </div>
+          </header>
+          <GuideRule />
+        </div>
 
         <DesktopTabs period={navPeriod} />
+        <GuideRule className="hidden lg:block" />
 
         <main
           className={`mx-auto w-full ${contentWidth} px-4 pt-6 pb-24 lg:px-8 lg:pb-10`}
         >
           <Outlet />
         </main>
+        <GuideRule />
       </div>
 
       <BottomNav period={navPeriod} />
