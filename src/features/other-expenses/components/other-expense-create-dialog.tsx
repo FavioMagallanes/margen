@@ -154,7 +154,7 @@ export const OtherExpenseCreateDialog = ({
               defaultValues={buildCreateDefaults()}
               conceptSuggestions={conceptsQuery.data ?? []}
               period={period}
-              isSaving={createOtherExpense.isLoading}
+              isSaving={createOtherExpense.isPending}
               errorMessage={
                 createOtherExpense.isError ? CREATE_ERROR_MESSAGE : null
               }

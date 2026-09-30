@@ -69,7 +69,7 @@ export const CardPurchaseBatchDialog = ({
           <CardPurchaseBatchPanel
             period={period}
             existingRows={purchasesQuery.data ?? []}
-            isSaving={createPurchasesBatch.isLoading}
+            isSaving={createPurchasesBatch.isPending}
             errorMessage={
               createPurchasesBatch.isError ? CREATE_BATCH_ERROR_MESSAGE : null
             }

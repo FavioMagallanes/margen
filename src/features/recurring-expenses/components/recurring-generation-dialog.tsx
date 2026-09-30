@@ -70,7 +70,7 @@ export const RecurringGenerationDialog = ({
           <RecurringGenerationForm
             plans={pendingPlans}
             period={period}
-            isSaving={generateOccurrences.isLoading}
+            isSaving={generateOccurrences.isPending}
             errorMessage={
               generateOccurrences.isError ? GENERATE_ERROR_MESSAGE : null
             }

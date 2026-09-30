@@ -204,7 +204,7 @@ export const CardPurchaseCreateDialog = ({
               key={createFormKey}
               mode="create"
               defaultValues={buildCreateDefaults(period)}
-              isSaving={createPurchase.isLoading}
+              isSaving={createPurchase.isPending}
               errorMessage={
                 createPurchase.isError ? CREATE_ERROR_MESSAGE : null
               }

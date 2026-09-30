@@ -153,7 +153,7 @@ export const RecurringCreateDialog = ({
               key={createFormKey}
               defaultValues={buildCreateDefaults()}
               period={period}
-              isSaving={createRecurring.isLoading}
+              isSaving={createRecurring.isPending}
               errorMessage={
                 createRecurring.isError ? CREATE_ERROR_MESSAGE : null
               }

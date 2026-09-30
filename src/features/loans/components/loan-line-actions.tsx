@@ -187,7 +187,7 @@ const LoanEditDialog = ({ period, planId, onClose }: LoanDialogProps) => {
           <LoanEditForm
             defaultValues={buildEditDefaults(editable)}
             editedPeriod={period}
-            isSaving={updateLoan.isLoading || saveInstallmentAmount.isLoading}
+            isSaving={updateLoan.isPending || saveInstallmentAmount.isPending}
             errorMessage={
               updateLoan.isError
                 ? UPDATE_ERROR_MESSAGE
@@ -263,7 +263,7 @@ const LoanInstallmentAmountsDialog = ({
           <LoanInstallmentAmountsForm
             concept={concept}
             installments={installments}
-            isSaving={saveInstallmentAmounts.isLoading}
+            isSaving={saveInstallmentAmounts.isPending}
             errorMessage={
               saveInstallmentAmounts.isError ? SAVE_AMOUNTS_ERROR_MESSAGE : null
             }
@@ -376,7 +376,7 @@ export const LoanLineActions = ({
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
-              disabled={deleteLoan.isLoading}
+              disabled={deleteLoan.isPending}
               onClick={() =>
                 deleteLoan.mutate(planId, {
                   onSuccess: () => setIsConfirmingDelete(false),

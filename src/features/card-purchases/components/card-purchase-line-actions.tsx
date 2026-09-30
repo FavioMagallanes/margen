@@ -197,7 +197,7 @@ const CardPurchaseEditDialog = ({
             mode="edit"
             editedPeriod={period}
             defaultValues={buildEditDefaults(editable, period)}
-            isSaving={updatePurchase.isLoading}
+            isSaving={updatePurchase.isPending}
             errorMessage={updatePurchase.isError ? UPDATE_ERROR_MESSAGE : null}
             onSubmit={(values) => handleUpdate(values, editable)}
             onCancel={onClose}
@@ -280,7 +280,7 @@ export const CardPurchaseLineActions = ({
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
-              disabled={deletePurchase.isLoading}
+              disabled={deletePurchase.isPending}
               onClick={() =>
                 deletePurchase.mutate(planId, {
                   onSuccess: () => setIsConfirmingDelete(false),

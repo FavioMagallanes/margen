@@ -167,7 +167,7 @@ export const LoanCreateDialog = ({
               key={createFormKey}
               defaultValues={buildCreateDefaults()}
               period={period}
-              isSaving={createLoan.isLoading}
+              isSaving={createLoan.isPending}
               errorMessage={createLoan.isError ? CREATE_ERROR_MESSAGE : null}
               onSubmit={(values) => handleCreate(values, false)}
               onSubmitAndAddAnother={(values) => handleCreate(values, true)}

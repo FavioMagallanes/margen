@@ -224,10 +224,10 @@ export const ExchangeRatePanel = ({
         <Button
           type="button"
           variant="outline"
-          disabled={fetchRate.isLoading}
+          disabled={fetchRate.isPending}
           onClick={updateFromProvider}
         >
-          {fetchRate.isLoading ? "Consultando…" : "Actualizar cotización"}
+          {fetchRate.isPending ? "Consultando…" : "Actualizar cotización"}
         </Button>
 
         {manualValue === null ? (
@@ -349,10 +349,10 @@ export const ExchangeRatePanel = ({
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               type="button"
-              disabled={saveRate.isLoading}
+              disabled={saveRate.isPending}
               onClick={applyCandidate}
             >
-              {saveRate.isLoading ? "Aplicando…" : "Confirmar"}
+              {saveRate.isPending ? "Aplicando…" : "Confirmar"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

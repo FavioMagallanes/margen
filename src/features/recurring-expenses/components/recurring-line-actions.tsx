@@ -172,7 +172,7 @@ const RecurringEditDialog = ({
           <RecurringExpenseEditForm
             defaultValues={buildEditDefaults(editable)}
             editedPeriod={period}
-            isSaving={updateRecurring.isLoading}
+            isSaving={updateRecurring.isPending}
             errorMessage={updateRecurring.isError ? UPDATE_ERROR_MESSAGE : null}
             onSubmit={(values) => handleUpdate(values, editable)}
             onCancel={onClose}
@@ -233,7 +233,7 @@ const RecurringAmountDialog = ({
               row.amount === null ? "" : formatRecurringAmountInput(row.amount)
             }
             defaultIsEstimated={row.amountIsEstimated}
-            isSaving={setOccurrenceAmount.isLoading}
+            isSaving={setOccurrenceAmount.isPending}
             errorMessage={
               setOccurrenceAmount.isError ? SET_AMOUNT_ERROR_MESSAGE : null
             }
@@ -367,7 +367,7 @@ export const RecurringLineActions = ({
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              disabled={stopRecurring.isLoading}
+              disabled={stopRecurring.isPending}
               onClick={() =>
                 stopRecurring.mutate(
                   { planId, fromPeriod: period },
@@ -409,7 +409,7 @@ export const RecurringLineActions = ({
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
-              disabled={deleteRecurring.isLoading}
+              disabled={deleteRecurring.isPending}
               onClick={() =>
                 deleteRecurring.mutate(planId, {
                   onSuccess: () => setIsConfirmingDelete(false),

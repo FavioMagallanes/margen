@@ -133,7 +133,7 @@ export const MonthlyBudgetPage = () => {
                 defaultSalary={
                   salaryArs === null ? "" : formatSalaryInput(salaryArs)
                 }
-                isSaving={saveSalary.isLoading}
+                isSaving={saveSalary.isPending}
                 hasFailed={saveSalary.isError}
                 onSave={(nextSalaryArs) =>
                   saveSalary.mutate(
@@ -162,7 +162,7 @@ export const MonthlyBudgetPage = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={saveSalary.isLoading}
+                  disabled={saveSalary.isPending}
                   onClick={() =>
                     saveSalary.mutate({ period, salaryArs: previousSalaryArs })
                   }
@@ -266,7 +266,7 @@ export const MonthlyBudgetPage = () => {
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
                 <AlertDialogAction
                   variant="destructive"
-                  disabled={clearMonth.isLoading}
+                  disabled={clearMonth.isPending}
                   onClick={() =>
                     clearMonth.mutate(period, {
                       onSuccess: () => setIsConfirmingClear(false),
