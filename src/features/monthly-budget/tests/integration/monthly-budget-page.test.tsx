@@ -256,6 +256,38 @@ describe("MonthlyBudgetPage", () => {
     ).toBeDefined()
   })
 
+  it("ofrece las vistas rápidas «A pagar este mes» y «A pagar el próximo mes» y rotula el sueldo con el mes en que se cobra", async () => {
+    // Only Date is faked: the queries still need real timers to resolve.
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date(2026, 3, 15))
+
+    try {
+      renderBudgetPage()
+
+      // Marzo is what gets paid with the salary collected now (Abril).
+      expect(
+        await screen.findByText("Sueldo a cobrar en Abril de 2026")
+      ).toBeDefined()
+      expect(screen.queryByText("Sueldo de Marzo de 2026")).toBeNull()
+
+      // The shared Button renders the router link with role="button", as the
+      // header tabs do.
+      const payNow = screen.getByRole("button", { name: "A pagar este mes" })
+      const payNext = screen.getByRole("button", {
+        name: "A pagar el próximo mes",
+      })
+
+      expect(payNow.tagName).toBe("A")
+      expect(payNext.tagName).toBe("A")
+      expect(payNow.getAttribute("href")).toBe("/months/2026/3")
+      expect(payNext.getAttribute("href")).toBe("/months/2026/4")
+      expect(payNow.getAttribute("aria-current")).toBe("page")
+      expect(payNext.getAttribute("aria-current")).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it("muestra el disponible calculado cuando el sueldo está cargado", async () => {
     setBudget(2026, 3, { salary_ars: 1_850_000, exchange_rate_value: 1640 })
     scenario.expenseOccurrences = [

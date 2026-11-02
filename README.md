@@ -18,7 +18,7 @@ Margen reemplaza la planilla con la que se organiza el presupuesto mensual: comp
 
 El comportamiento completo, con las reglas de negocio y los criterios de aceptación, está en [`FUNCTIONALITY.md`](./FUNCTIONALITY.md).
 
-> **Mes de trabajo:** el sueldo que se cobra en un mes calendario paga lo cargado durante el mes anterior. Por eso la app abre por defecto en el mes calendario real + 1. Reportes es la excepción: sigue anclado al mes real.
+> **Mes cargado y mes de cobro:** cada gasto se carga en el mes en que ocurre, y lo cargado en un mes se paga con el sueldo que se cobra el mes siguiente («Sueldo a cobrar en …»). La app abre en el mes calendario real; desde el presupuesto, «A pagar este mes» lleva al mes anterior y «A pagar el próximo mes» al mes actual.
 
 ## Stack
 

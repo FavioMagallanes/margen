@@ -1,11 +1,10 @@
-import { getWorkingPeriod } from "@/shared/lib/period"
+import { getCurrentPeriod } from "@/shared/lib/period"
 
 // Resolved per navigation so a session open across midnight still lands on
-// the right month. It lands on the working month (real calendar month + 1),
-// not on the real calendar month — same reasoning as the router's own
-// redirect for "/".
+// the right month: the real calendar month, same as the router's own redirect
+// for "/".
 export const buildCurrentMonthPath = () => {
-  const { year, month } = getWorkingPeriod()
+  const { year, month } = getCurrentPeriod()
 
   return `/months/${year}/${month}`
 }

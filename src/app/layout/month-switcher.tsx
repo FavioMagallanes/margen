@@ -13,7 +13,6 @@ import {
   addMonths,
   formatPeriodLabel,
   getCurrentPeriod,
-  isPeriodBefore,
   isSamePeriod,
 } from "@/shared/lib/period"
 
@@ -33,14 +32,7 @@ type MonthSwitcherProps = {
 export const MonthSwitcher = ({ period }: MonthSwitcherProps) => {
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  // "Hoy" targets the real calendar month, not the working month used as the
-  // default landing (see router redirect).
   const currentPeriod = getCurrentPeriod()
-  // A month before the real current one has already happened: the arrow
-  // stops there so browsing does not casually wander into settled history,
-  // while a saved link to an old month still opens it if the user wants to.
-  const previousPeriod = addMonths(period, -1)
-  const canGoToPreviousMonth = !isPeriodBefore(previousPeriod, currentPeriod)
 
   const goToPeriod = (nextPeriod: Period) => {
     void navigate(buildMonthPath(pathname, nextPeriod))
@@ -48,19 +40,14 @@ export const MonthSwitcher = ({ period }: MonthSwitcherProps) => {
 
   return (
     <div className="flex items-center gap-1">
-      {canGoToPreviousMonth ? (
-        <Button
-          variant="ghost"
-          size="icon-lg"
-          aria-label="Mes anterior"
-          onClick={() => goToPeriod(previousPeriod)}
-        >
-          <HugeiconsIcon icon={ArrowLeft01FreeIcons} size={20} />
-        </Button>
-      ) : (
-        // Same footprint as the hidden arrow so the label does not shift.
-        <span aria-hidden className="size-8" />
-      )}
+      <Button
+        variant="ghost"
+        size="icon-lg"
+        aria-label="Mes anterior"
+        onClick={() => goToPeriod(addMonths(period, -1))}
+      >
+        <HugeiconsIcon icon={ArrowLeft01FreeIcons} size={20} />
+      </Button>
 
       <span className="min-w-40 text-center text-sm font-medium">
         {formatPeriodLabel(period)}

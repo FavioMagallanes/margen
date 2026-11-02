@@ -3,7 +3,7 @@ import { Outlet, useLocation, useParams } from "react-router"
 
 import { LogoutButton } from "@/features/auth/components/logout-button"
 import {
-  getWorkingPeriod,
+  getCurrentPeriod,
   isSamePeriod,
   parsePeriod,
   type Period,
@@ -20,10 +20,11 @@ export const AppShell = () => {
   const routePeriod = parsePeriod(year, month)
   // Routes without a month (Reportes) still need a period for the month
   // links, but it must be wherever the user was last browsing, not always
-  // the working month — otherwise leaving Presupuesto in Septiembre and
-  // visiting Reportes, then coming back, would silently jump you to Octubre.
+  // the real current month — otherwise leaving Presupuesto in Agosto and
+  // visiting Reportes, then coming back, would silently jump you to the
+  // current month.
   const [rememberedPeriod, setRememberedPeriod] = useState<Period>(
-    () => routePeriod ?? getWorkingPeriod()
+    () => routePeriod ?? getCurrentPeriod()
   )
 
   if (routePeriod !== null && !isSamePeriod(routePeriod, rememberedPeriod)) {

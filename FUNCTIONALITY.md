@@ -1,7 +1,7 @@
 # Especificación funcional — App personal de presupuesto y gastos
 
-**Versión:** 1.9  
-**Fecha:** 29 de septiembre de 2026  
+**Versión:** 2.1  
+**Fecha:** 2 de noviembre de 2026  
 **Nombre de la aplicación:** Margen.  
 **Estado:** base funcional para desarrollar y seguir iterando el producto.
 
@@ -24,26 +24,26 @@ Los ejemplos monetarios y las cotizaciones de este documento son ficticios. No r
 
 ## 2. Decisiones confirmadas
 
-| ID   | Decisión                                                                                                                                                                                                                                                              |
-| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D-01 | El presupuesto de cada mes es el sueldo que el usuario carga para ese mes, en pesos argentinos. El sueldo de un mes calendario paga lo cargado durante el mes calendario anterior, por lo que la app abre por defecto en el mes de trabajo (mes calendario real + 1). |
-| D-02 | Un gasto descuenta del presupuesto desde que queda registrado en el mes correspondiente.                                                                                                                                                                              |
-| D-03 | No se lleva seguimiento de pagos: no hay estados «pagado/pendiente», pago mínimo, pago total ni conciliación del resumen.                                                                                                                                             |
-| D-04 | Los meses son independientes. No se arrastra el sobrante al mes siguiente. Tampoco se traslada automáticamente un resultado negativo.                                                                                                                                 |
-| D-05 | Se registran consumos de tarjetas de crédito BBVA y Supervielle, con totales separados por tarjeta.                                                                                                                                                                   |
-| D-06 | Los consumos de tarjeta admiten ARS y USD. El importe ingresado es el de la cuota del mes, no el precio completo de la compra.                                                                                                                                        |
-| D-07 | Las cuotas futuras aparecen automáticamente, incrementando su número hasta alcanzar el total de cuotas.                                                                                                                                                               |
-| D-08 | Los préstamos son únicamente en ARS. Sus entidades pueden ser BBVA, Supervielle, Mercado Pago u otras ingresadas por el usuario.                                                                                                                                      |
-| D-09 | Las cuotas de los préstamos pueden tener importes diferentes. El usuario ya conoce los importes futuros y debe poder cargarlos por anticipado.                                                                                                                        |
-| D-10 | También existen otros gastos y gastos que se repiten mensualmente.                                                                                                                                                                                                    |
-| D-11 | Los conceptos se escriben libremente; no se exige elegir categorías desde listas desplegables.                                                                                                                                                                        |
-| D-12 | Se permite cargar gastos individualmente durante el mes y también varios juntos al revisar un resumen. Ambos flujos usan los mismos registros.                                                                                                                        |
-| D-13 | Los USD se convierten a ARS utilizando dólar tarjeta, valor de venta, obtenido mediante un servicio de cotización.                                                                                                                                                    |
-| D-14 | Cada mes conserva su cotización aplicada. No se actualiza automáticamente al abrir la app, agregar un consumo o descargar un PDF.                                                                                                                                     |
-| D-15 | La actualización de la cotización mensual es explícita. También se contempla poder editarla manualmente.                                                                                                                                                              |
-| D-16 | Se puede descargar información en PDF: todos los gastos o una selección de ellos.                                                                                                                                                                                     |
-| D-17 | La aplicación debe ser cómoda en computadora y celular, con acceso a la misma información guardada.                                                                                                                                                                   |
-| D-18 | Es una herramienta personal, no un producto comercial ni una plataforma para múltiples clientes.                                                                                                                                                                      |
+| ID   | Decisión                                                                                                                                                                                                                                            |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D-01 | El presupuesto de cada mes presupuestario P es el sueldo, en pesos argentinos, que paga lo cargado durante P; ese sueldo se cobra en el mes siguiente (P+1) y se guarda junto a los gastos de P. La app abre por defecto en el mes calendario real. |
+| D-02 | Un gasto descuenta del presupuesto desde que queda registrado en el mes correspondiente.                                                                                                                                                            |
+| D-03 | No se lleva seguimiento de pagos: no hay estados «pagado/pendiente», pago mínimo, pago total ni conciliación del resumen.                                                                                                                           |
+| D-04 | Los meses son independientes. No se arrastra el sobrante al mes siguiente. Tampoco se traslada automáticamente un resultado negativo.                                                                                                               |
+| D-05 | Se registran consumos de tarjetas de crédito BBVA y Supervielle, con totales separados por tarjeta.                                                                                                                                                 |
+| D-06 | Los consumos de tarjeta admiten ARS y USD. El importe ingresado es el de la cuota del mes, no el precio completo de la compra.                                                                                                                      |
+| D-07 | Las cuotas futuras aparecen automáticamente, incrementando su número hasta alcanzar el total de cuotas.                                                                                                                                             |
+| D-08 | Los préstamos son únicamente en ARS. Sus entidades pueden ser BBVA, Supervielle, Mercado Pago u otras ingresadas por el usuario.                                                                                                                    |
+| D-09 | Las cuotas de los préstamos pueden tener importes diferentes. El usuario ya conoce los importes futuros y debe poder cargarlos por anticipado.                                                                                                      |
+| D-10 | También existen otros gastos y gastos que se repiten mensualmente.                                                                                                                                                                                  |
+| D-11 | Los conceptos se escriben libremente; no se exige elegir categorías desde listas desplegables.                                                                                                                                                      |
+| D-12 | Se permite cargar gastos individualmente durante el mes y también varios juntos al revisar un resumen. Ambos flujos usan los mismos registros.                                                                                                      |
+| D-13 | Los USD se convierten a ARS utilizando dólar tarjeta, valor de venta, obtenido mediante un servicio de cotización.                                                                                                                                  |
+| D-14 | Cada mes conserva su cotización aplicada. No se actualiza automáticamente al abrir la app, agregar un consumo o descargar un PDF.                                                                                                                   |
+| D-15 | La actualización de la cotización mensual es explícita. También se contempla poder editarla manualmente.                                                                                                                                            |
+| D-16 | Se puede descargar información en PDF: todos los gastos o una selección de ellos.                                                                                                                                                                   |
+| D-17 | La aplicación debe ser cómoda en computadora y celular, con acceso a la misma información guardada.                                                                                                                                                 |
+| D-18 | Es una herramienta personal, no un producto comercial ni una plataforma para múltiples clientes.                                                                                                                                                    |
 
 ## 3. Conceptos del producto
 
@@ -53,9 +53,9 @@ Período identificado por mes y año. Como base se usan meses calendario. Contie
 
 El mes asignado a un gasto no depende necesariamente de la fecha en que se lo carga. Es posible registrar en septiembre una compra cuya primera cuota corresponda a octubre.
 
-**Mes de trabajo:** el sueldo que se cobra en un mes calendario paga lo que se fue cargando durante el mes calendario anterior. Por eso el mes presupuestario que la app muestra por defecto es el mes calendario real + 1 (por ejemplo, en septiembre de 2026 se abre octubre de 2026). Reportes (RF-10) es la excepción: sigue anclado al mes calendario real.
+**Mes cargado y mes de cobro:** cada gasto se carga en el mes en que ocurre, y lo cargado durante un mes presupuestario P se paga con el sueldo que se cobra en los primeros días del mes siguiente (P+1). La app abre por defecto en el mes calendario real, que es el mes que se está cargando (por ejemplo, en noviembre de 2026 se abre noviembre de 2026). Desde el presupuesto hay dos vistas rápidas: «A pagar este mes» lleva al mes calendario real − 1 (lo que se paga con el sueldo que se cobra ahora) y «A pagar el próximo mes» lleva al mes calendario real (lo que se está cargando ahora).
 
-El título de la sección de gastos de cualquier mes presupuestario P siempre dice «A pagar en {P+1}», sin excepción — no solo en el mes de trabajo por defecto, sino en cualquier mes que se esté consultando (pasado, de trabajo o futuro). El sueldo mostrado en esa misma página sigue etiquetándose con el mes P real («Sueldo de {P}»), sin corrimiento.
+El título de la sección de gastos de cualquier mes presupuestario P siempre dice «A pagar en {P+1}», sin excepción, en cualquier mes que se esté consultando (pasado, actual o futuro). El sueldo de esa misma página se guarda en el mes P y se etiqueta con el mes en que se cobra: «Sueldo a cobrar en {P+1}».
 
 ### Gasto mensual
 
@@ -79,9 +79,9 @@ El grupo al que pertenece un gasto y su forma de repetirse son independientes. U
 
 ## 4. RF-01 — Presupuesto mensual
 
-La app abre por defecto en el mes de trabajo (mes calendario real + 1), no en el mes calendario real; el botón «Hoy» lleva al mes calendario real. Reportes (RF-10) es la excepción explícita: sigue anclado al mes calendario real.
+La app abre por defecto en el mes calendario real; el botón «Hoy» lleva al mes calendario real y se oculta cuando ya se está en él. Debajo del título «A pagar en {P+1}» hay dos vistas rápidas: «A pagar este mes» (mes calendario real − 1) y «A pagar el próximo mes» (mes calendario real); la que coincide con el mes que se está viendo queda resaltada, y ambas llevan a la página de presupuesto de ese mes.
 
-El usuario puede consultar meses anteriores, el de trabajo y meses futuros; ingresar o modificar el sueldo de un mes; y ver sus gastos y disponible. La flecha «Mes anterior» del selector se deshabilita al llegar al mes calendario real (no deja retroceder a un mes que ya pasó por defecto), pero esto no bloquea entrar directamente a la página de un mes pasado por otro medio (por ejemplo, un enlace guardado): la consulta de historial viejo no se pierde, solo deja de ofrecerse como navegación casual.
+El usuario puede consultar meses anteriores, el actual y meses futuros; ingresar o modificar el sueldo de un mes («Sueldo a cobrar en {P+1}»); y ver sus gastos y disponible. Las flechas «Mes anterior» y «Mes siguiente» del selector están siempre disponibles: se puede retroceder a cualquier mes pasado.
 
 **Regla principal:**
 
@@ -107,18 +107,25 @@ El indicador debe llamarse «Disponible del presupuesto» o equivalente. No repr
 
 ### Información de cada compra
 
-| Dato                      | Comportamiento                                                    |
-| ------------------------- | ----------------------------------------------------------------- |
-| Concepto o producto       | Texto libre obligatorio.                                          |
-| Tarjeta                   | BBVA o Supervielle como tarjetas iniciales.                       |
-| Moneda                    | ARS o USD.                                                        |
-| Importe de la cuota       | Importe correspondiente a la cuota mensual, en la moneda elegida. |
-| Número de cuota           | Cuota desde la que se empieza a registrar la compra.              |
-| Total de cuotas           | Cantidad total de cuotas de la compra.                            |
-| Mes de la cuota ingresada | Mes al que corresponde ese número de cuota.                       |
-| Fecha de compra           | Opcional; no determina automáticamente el mes presupuestario.     |
+| Dato                      | Comportamiento                                                                                             |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Concepto o producto       | Texto libre obligatorio.                                                                                   |
+| Tarjeta                   | BBVA o Supervielle como tarjetas iniciales.                                                                |
+| Moneda                    | ARS o USD.                                                                                                 |
+| Importe de la cuota       | Importe correspondiente a la cuota mensual, en la moneda elegida.                                          |
+| Número de cuota           | Cuota desde la que se empieza a registrar la compra.                                                       |
+| Total de cuotas           | Cantidad total de cuotas de la compra.                                                                     |
+| Mes de la cuota ingresada | Es el mes del presupuesto que se está viendo al cargar la compra (mes y año). No se elige con un selector. |
+| Fecha de compra           | Opcional; no determina automáticamente el mes presupuestario.                                              |
 
 Una compra en un pago equivale a cuota 1 de 1. Se puede presentar una opción «Un pago» para simplificar su carga.
+
+**Cambio v2.1:** corrección pedida por el usuario. La compra se imputa siempre
+al mes del presupuesto desde el que se carga, igual que préstamos,
+recurrentes y otros gastos. Se quitó el selector «Mes de la cuota», que
+ofrecía solo desde el mes real hasta diciembre y hacía que una compra cargada
+desde un mes anterior (por ejemplo, octubre viendo en noviembre) quedara en el
+mes real. Editar una compra sigue aplicándose desde el mes de la fila editada.
 
 ### Ejemplo de continuidad
 
@@ -416,7 +423,7 @@ La ausencia de sueldo no impide consultar gastos futuros. Tampoco obliga a carga
 
 Esta vista no pronostica cotizaciones, ingresos ni intereses; organiza compromisos que ya fueron registrados.
 
-Al igual que el presupuesto (RF-01), abre por defecto en el mes de trabajo (mes calendario real + 1).
+Al igual que el presupuesto (RF-01), abre por defecto en el mes calendario real.
 
 **Cambio v1.3:** por pedido explícito del usuario se redujo el alcance
 de esta vista a compras con tarjeta únicamente — préstamos y gastos
@@ -434,14 +441,14 @@ a registrar desde la última cuota), el fin ahora se calcula a partir
 del número de cuota real de esa
 ocurrencia, no asumiendo siempre que la primera cargada es la cuota 1.
 
-**Cambio v1.4:** por pedido explícito del usuario, el sueldo que se cobra
+**Cambio v1.4 (reemplazado por v2.0 en cuanto al mes de apertura):** por pedido explícito del usuario, el sueldo que se cobra
 en un mes calendario paga lo cargado durante el mes calendario anterior,
 para todo tipo de gasto. Por eso el presupuesto y esta vista abren por
 defecto en el mes de trabajo (mes calendario real + 1) y el título de la
 sección de gastos del presupuesto pasó de «Gastos de {mes}» a «A pagar
 en {mes}». Reportes (RF-10) no cambia: sigue en el mes calendario real.
 
-**Cambio v1.5:** corrección a v1.4, por pedido explícito del usuario: el
+**Cambio v1.5 (reemplazado por v2.0 en cuanto a la etiqueta del sueldo):** corrección a v1.4, por pedido explícito del usuario: el
 título «A pagar en {mes}» de la sección de gastos del presupuesto no usa
 el mismo mes de la página — usa siempre el mes siguiente al de esa
 página, sin excepción (viendo Septiembre dice «A pagar en Octubre»;
@@ -449,19 +456,31 @@ viendo Octubre dice «A pagar en Noviembre», aunque esa sea la página que
 abre por defecto). El sueldo mostrado sigue siendo el de la página real,
 sin corrimiento.
 
-**Cambio v1.6:** por pedido explícito del usuario, la flecha «Mes
+**Cambio v1.6 (reemplazado por v2.0):** por pedido explícito del usuario, la flecha «Mes
 anterior» del selector de mes (RF-01) se deshabilita al llegar al mes
 calendario real, para no invitar a retroceder a un mes que ya pasó.
 Esto no bloquea entrar directamente a un mes pasado por otro medio (un
 enlace guardado, por ejemplo): la posibilidad de consultar historial
 viejo no se pierde, sólo se deja de ofrecer como navegación casual.
 
-**Cambio v1.7:** por pedido explícito del usuario, el botón «Hoy» del
+**Cambio v1.7 (reemplazado por v2.0 salvo el botón «Hoy» y el tamaño de las flechas):** por pedido explícito del usuario, el botón «Hoy» del
 selector de mes (RF-01) vuelve a llevar al mes calendario real, no al mes
 de trabajo (el aterrizaje por defecto de la app sigue siendo el mes de
 trabajo). Además, la flecha «Mes anterior» se oculta (en vez de
 deshabilitarse) al llegar al mes calendario real, y las flechas del
 selector son más grandes.
+
+**Cambio v2.0:** por pedido explícito del usuario se reemplazó el modelo
+de «mes de trabajo» de v1.4–v1.7. Cada gasto se carga en el mes en que
+ocurre y lo cargado en un mes P se paga con el sueldo que se cobra en
+P+1. Desde esta versión: la app (presupuesto y esta vista) abre en el mes
+calendario real, no en el real + 1; la flecha «Mes anterior» está siempre
+disponible, incluso en el mes real y en meses pasados; «Hoy» lleva al mes
+calendario real; el sueldo sigue guardado en el mes P (sin cambios de
+datos ni migraciones) pero se etiqueta «Sueldo a cobrar en {P+1}»; y el
+presupuesto ofrece dos vistas rápidas, «A pagar este mes» (mes real − 1) y
+«A pagar el próximo mes» (mes real). Los títulos «A pagar en {P+1}» no
+cambian. Reportes (RF-10) sigue anclado al mes calendario real.
 
 ## 16. RF-13 — Acceso privado y uso en dos dispositivos
 

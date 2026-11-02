@@ -14,7 +14,7 @@ import { AuthProvider } from "@/features/auth/auth-provider"
 import { GuestOnlyRoute } from "@/features/auth/components/guest-only-route"
 import { RequireAuth } from "@/features/auth/components/require-auth"
 import { createFakeSession } from "@/features/auth/tests/fixtures/session"
-import { getWorkingPeriod } from "@/shared/lib/period"
+import { getCurrentPeriod } from "@/shared/lib/period"
 
 const { authMock } = vi.hoisted(() => ({
   authMock: {
@@ -126,12 +126,12 @@ describe("guard de rutas", () => {
     ).toBeDefined()
   })
 
-  it("con sesión, el login redirige al mes de trabajo", async () => {
+  it("con sesión, el login redirige al mes calendario real", async () => {
     withSession(createFakeSession())
 
     renderRoutes("/login")
 
-    const { year, month } = getWorkingPeriod()
+    const { year, month } = getCurrentPeriod()
 
     expect(
       await screen.findByText(`Presupuesto protegido de ${year}/${month}`)

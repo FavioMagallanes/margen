@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useParams } from "react-router"
+import { NavLink, useParams } from "react-router"
 
 import { Decimal } from "decimal.js"
 
@@ -23,8 +23,10 @@ import { formatArs } from "@/shared/lib/money"
 import {
   addMonths,
   formatPeriodLabel,
-  getWorkingPeriod,
+  getCurrentPeriod,
+  isSamePeriod,
   parsePeriod,
+  type Period,
 } from "@/shared/lib/period"
 
 import {
@@ -49,9 +51,18 @@ const LOAD_ERROR_MESSAGE =
 const INCOMPLETE_TOTAL_MESSAGE =
   "El cálculo está incompleto: falta algún importe o la cotización del mes, así que este disponible no es definitivo."
 
+// Month P holds what was loaded during P, paid with the salary collected in
+// P+1. So what gets paid now is last month's bucket, and what is being loaded
+// now is the current month's bucket.
+const buildPayViews = (now: Period) => [
+  { label: "A pagar este mes", period: addMonths(now, -1) },
+  { label: "A pagar el próximo mes", period: now },
+]
+
 export const MonthlyBudgetPage = () => {
   const { year, month } = useParams()
-  const period = parsePeriod(year, month) ?? getWorkingPeriod()
+  const currentPeriod = getCurrentPeriod()
+  const period = parsePeriod(year, month) ?? currentPeriod
   const previousPeriod = addMonths(period, -1)
 
   const { session } = useAuth()
@@ -124,7 +135,7 @@ export const MonthlyBudgetPage = () => {
         <CardContent className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
           <div className="flex flex-col gap-2">
             <p className="text-xs text-muted-foreground">
-              Sueldo de {formatPeriodLabel(period)}
+              Sueldo a cobrar en {formatPeriodLabel(addMonths(period, 1))}
             </p>
 
             {showSalaryForm ? (
@@ -228,6 +239,26 @@ export const MonthlyBudgetPage = () => {
           <p className="text-xs text-muted-foreground">
             Desde acá cargás, editás y eliminás cualquier gasto del mes.
           </p>
+          <div className="mt-1 flex gap-2">
+            {buildPayViews(currentPeriod).map((view) => (
+              <Button
+                key={view.label}
+                size="sm"
+                variant={
+                  isSamePeriod(view.period, period) ? "default" : "outline"
+                }
+                nativeButton={false}
+                render={
+                  <NavLink
+                    to={`/months/${view.period.year}/${view.period.month}`}
+                    end
+                  />
+                }
+              >
+                {view.label}
+              </Button>
+            ))}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
