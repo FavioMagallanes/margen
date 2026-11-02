@@ -13,7 +13,6 @@ const baseValues = {
   isSinglePayment: false,
   startingInstallment: "3",
   totalInstallments: "6",
-  month: "9",
 }
 
 describe("cardPurchaseSchema", () => {
@@ -70,12 +69,9 @@ describe("cardPurchaseSchema", () => {
     ).toBe(false)
   })
 
-  it("rechaza una tarjeta o un mes fuera de las opciones válidas", () => {
+  it("rechaza una tarjeta fuera de las opciones válidas", () => {
     expect(
       cardPurchaseSchema.safeParse({ ...baseValues, card: "Galicia" }).success
-    ).toBe(false)
-    expect(
-      cardPurchaseSchema.safeParse({ ...baseValues, month: "13" }).success
     ).toBe(false)
   })
 })

@@ -13,11 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  formatPeriodLabel,
-  getCurrentPeriod,
-  type Period,
-} from "@/shared/lib/period"
+import { formatPeriodLabel, type Period } from "@/shared/lib/period"
 import { AmountInput } from "@/shared/ui/amount-input"
 
 import {
@@ -36,6 +32,8 @@ type CardPurchaseFormProps = {
 } & (
   | {
       mode: "create"
+      /** RF-02: the viewed budget month, which the new purchase is imputed to. */
+      period: Period
       /** RF-09: saves and keeps the form open, reset to its defaults. */
       onSubmitAndAddAnother: (values: CardPurchaseFormValues) => void
     }
@@ -58,29 +56,6 @@ const currencyOptions: SelectOption[] = [
   { value: "ars", label: "Pesos (ARS)" },
   { value: "usd", label: "Dólares (USD)" },
 ]
-
-const MONTHS_PER_YEAR = 12
-
-const monthNameFormatter = new Intl.DateTimeFormat("es-AR", {
-  month: "long",
-  timeZone: "UTC",
-})
-
-/**
- * RF-02: a purchase can only be imputed from the current real month up to
- * December of that same year, so the options are derived from today on every
- * render instead of being a fixed list.
- */
-const buildMonthOptions = ({ year, month }: Period): SelectOption[] =>
-  Array.from({ length: MONTHS_PER_YEAR - month + 1 }, (_value, index) => {
-    const optionMonth = month + index
-    const name = monthNameFormatter.format(Date.UTC(year, optionMonth - 1, 1))
-
-    return {
-      value: String(optionMonth),
-      label: name.charAt(0).toUpperCase() + name.slice(1),
-    }
-  })
 
 /**
  * The Select root drives the value through `onValueChange` instead of a change
@@ -172,7 +147,6 @@ export const CardPurchaseForm = (props: CardPurchaseFormProps) => {
   const editedInstallment = parsePositiveInteger(
     defaultValues.startingInstallment
   )
-  const monthOptions = buildMonthOptions(getCurrentPeriod())
 
   return (
     <form
@@ -314,25 +288,9 @@ export const CardPurchaseForm = (props: CardPurchaseFormProps) => {
       )}
 
       {props.mode === "create" ? (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field htmlFor="card-purchase-month" label="Mes de la cuota">
-            <Controller
-              control={control}
-              name="month"
-              render={({ field }) => (
-                <SelectField
-                  id="card-purchase-month"
-                  options={monthOptions}
-                  value={field.value}
-                  isInvalid={errors.month !== undefined}
-                  onValueChange={field.onChange}
-                  onBlur={field.onBlur}
-                />
-              )}
-            />
-            <FieldError message={errors.month?.message} />
-          </Field>
-        </div>
+        <p className="text-xs text-muted-foreground">
+          La cuota que cargás corresponde a {formatPeriodLabel(props.period)}.
+        </p>
       ) : (
         // P-04: an edit always applies from the installment the user opened.
         <p className="text-xs text-muted-foreground">

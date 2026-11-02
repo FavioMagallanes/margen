@@ -83,8 +83,7 @@ const toEditableCardPurchase = (
 }
 
 const buildEditDefaults = (
-  purchase: EditableCardPurchase,
-  period: Period
+  purchase: EditableCardPurchase
 ): CardPurchaseFormValues => ({
   concept: purchase.row.conceptText,
   card: purchase.card,
@@ -96,7 +95,6 @@ const buildEditDefaults = (
   isSinglePayment: false,
   startingInstallment: String(purchase.installmentNumber),
   totalInstallments: String(purchase.totalInstallments),
-  month: String(period.month),
 })
 
 const toUpdateInput = (
@@ -196,7 +194,7 @@ const CardPurchaseEditDialog = ({
           <CardPurchaseForm
             mode="edit"
             editedPeriod={period}
-            defaultValues={buildEditDefaults(editable, period)}
+            defaultValues={buildEditDefaults(editable)}
             isSaving={updatePurchase.isPending}
             errorMessage={updatePurchase.isError ? UPDATE_ERROR_MESSAGE : null}
             onSubmit={(values) => handleUpdate(values, editable)}

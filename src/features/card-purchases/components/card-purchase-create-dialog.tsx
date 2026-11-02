@@ -13,11 +13,7 @@ import {
   type DuplicateCandidate,
   findPossibleDuplicate,
 } from "@/shared/lib/duplicate-expense"
-import {
-  formatPeriodLabel,
-  getCurrentPeriod,
-  type Period,
-} from "@/shared/lib/period"
+import { formatPeriodLabel, type Period } from "@/shared/lib/period"
 
 import {
   CREATE_ERROR_MESSAGE,
@@ -37,7 +33,7 @@ import { CardPurchaseForm } from "./card-purchase-form"
 import { DuplicateCardPurchaseDialog } from "./duplicate-card-purchase-dialog"
 
 type CardPurchaseCreateDialogProps = {
-  /** The month being viewed in the budget, which the form defaults to. */
+  /** The month being viewed in the budget, which the purchase is imputed to. */
   period: Period
   onClose: () => void
 }
@@ -51,39 +47,31 @@ type PendingCardPurchase = {
   duplicate: DuplicateCandidate
 }
 
-const buildCreateDefaults = (period: Period): CardPurchaseFormValues => {
-  const currentPeriod = getCurrentPeriod()
-  // RF-02: the form only offers the current real month onwards, so the viewed
-  // month is only a valid default while it belongs to that range.
-  const isViewedMonthAvailable =
-    period.year === currentPeriod.year && period.month >= currentPeriod.month
-
-  return {
-    concept: "",
-    card: "BBVA",
-    currency: "ars",
-    quotaAmount: "",
-    isSinglePayment: false,
-    startingInstallment: "1",
-    totalInstallments: "1",
-    month: String(isViewedMonthAvailable ? period.month : currentPeriod.month),
-  }
+const CREATE_DEFAULTS: CardPurchaseFormValues = {
+  concept: "",
+  card: "BBVA",
+  currency: "ars",
+  quotaAmount: "",
+  isSinglePayment: false,
+  startingInstallment: "1",
+  totalInstallments: "1",
 }
 
+// RF-02: like loans and other expenses, a purchase is always imputed to the
+// budget month page it is loaded from, never to the real current month.
 const toCreateInput = (
-  values: CardPurchaseFormValues
+  values: CardPurchaseFormValues,
+  period: Period
 ): CreateCardPurchaseInput | null => {
   const quotaAmount = parseAmountInputValue(values.quotaAmount)
   const startingInstallment = parsePositiveInteger(values.startingInstallment)
   const totalInstallments = parsePositiveInteger(values.totalInstallments)
-  const month = parsePositiveInteger(values.month)
 
   // The resolver already rejected these cases; this only narrows the types.
   if (
     quotaAmount === null ||
     startingInstallment === null ||
-    totalInstallments === null ||
-    month === null
+    totalInstallments === null
   ) {
     return null
   }
@@ -95,8 +83,7 @@ const toCreateInput = (
     quotaAmount: quotaAmount.toNumber(),
     startingInstallment,
     totalInstallments,
-    // RF-02: the year is never chosen in the form, it is always the current one.
-    period: { year: getCurrentPeriod().year, month },
+    period,
   }
 }
 
@@ -141,23 +128,18 @@ export const CardPurchaseCreateDialog = ({
     values: CardPurchaseFormValues,
     keepFormOpen: boolean
   ) => {
-    const input = toCreateInput(values)
+    const input = toCreateInput(values, period)
 
     if (input === null) {
       return
     }
 
-    // The warning compares against the month already on screen, so it only
-    // applies when the purchase is imputed to that same month.
-    const isViewedMonth =
-      input.period.year === period.year && input.period.month === period.month
-
-    const duplicate = isViewedMonth
-      ? findPossibleDuplicate(
-          toCardPurchaseDraftCandidate(input),
-          toCardPurchaseCandidates(purchasesQuery.data ?? [])
-        )
-      : null
+    // The purchase always lands on the viewed month, so the purchases already
+    // on screen are exactly the ones it can duplicate.
+    const duplicate = findPossibleDuplicate(
+      toCardPurchaseDraftCandidate(input),
+      toCardPurchaseCandidates(purchasesQuery.data ?? [])
+    )
 
     if (duplicate !== null) {
       setPendingCreate({ input, keepFormOpen, duplicate })
@@ -203,7 +185,8 @@ export const CardPurchaseCreateDialog = ({
             <CardPurchaseForm
               key={createFormKey}
               mode="create"
-              defaultValues={buildCreateDefaults(period)}
+              period={period}
+              defaultValues={CREATE_DEFAULTS}
               isSaving={createPurchase.isPending}
               errorMessage={
                 createPurchase.isError ? CREATE_ERROR_MESSAGE : null

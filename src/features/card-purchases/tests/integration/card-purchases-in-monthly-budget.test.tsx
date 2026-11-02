@@ -14,7 +14,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { AuthProvider } from "@/features/auth/auth-provider"
 import { createFakeSession } from "@/features/auth/tests/fixtures/session"
 import { MonthlyBudgetPage } from "@/features/monthly-budget/monthly-budget-page"
-import { getCurrentPeriod, type Period } from "@/shared/lib/period"
+import {
+  formatPeriodLabel,
+  getCurrentPeriod,
+  type Period,
+} from "@/shared/lib/period"
 
 type StoredOccurrence = {
   id: string
@@ -186,22 +190,9 @@ const setOccurrences = (occurrences: StoredOccurrence[]) => {
   scenario.occurrences = occurrences
 }
 
-// The route decides which month the page is looking at; the form, instead,
-// always works against the real current month.
+// The route decides which month the page is looking at, and a new purchase is
+// always imputed to that month.
 const VIEWED_PERIOD: Period = { year: 2026, month: 3 }
-
-const MONTHS_PER_YEAR = 12
-
-const monthNameFormatter = new Intl.DateTimeFormat("es-AR", {
-  month: "long",
-  timeZone: "UTC",
-})
-
-const monthLabel = ({ year, month }: Period) => {
-  const name = monthNameFormatter.format(Date.UTC(year, month - 1, 1))
-
-  return name.charAt(0).toUpperCase() + name.slice(1)
-}
 
 const renderBudgetPage = (period: Period = VIEWED_PERIOD) => {
   const queryClient = new QueryClient({
@@ -315,31 +306,21 @@ describe("compras con tarjeta desde Presupuesto", () => {
     })
   })
 
-  it("solo ofrece meses del mes real actual hasta diciembre, sin pedir el año", async () => {
+  it("imputa la compra al mes que se está viendo, sin pedir mes ni año", async () => {
     renderBudgetPage()
 
     await openPurchaseForm()
 
     expect(screen.queryByLabelText("Año de la cuota")).toBeNull()
-
-    fireEvent.click(screen.getByRole("combobox", { name: "Mes de la cuota" }))
-
-    const currentPeriod = getCurrentPeriod()
-    const offeredMonths = Array.from(
-      { length: MONTHS_PER_YEAR - currentPeriod.month + 1 },
-      (_value, index) =>
-        monthLabel({
-          year: currentPeriod.year,
-          month: currentPeriod.month + index,
-        })
-    )
-
+    expect(screen.queryByLabelText("Mes de la cuota")).toBeNull()
     expect(
-      screen.getAllByRole("option").map((option) => option.textContent)
-    ).toEqual(offeredMonths)
+      screen.getByText(
+        `La cuota que cargás corresponde a ${formatPeriodLabel(VIEWED_PERIOD)}.`
+      )
+    ).toBeDefined()
   })
 
-  it("crea una compra con los datos que el usuario eligió", async () => {
+  it("crea una compra con los datos que el usuario eligió en el mes que se está viendo", async () => {
     renderBudgetPage()
 
     await openPurchaseForm()
@@ -357,12 +338,6 @@ describe("compras con tarjeta desde Presupuesto", () => {
     fireEvent.change(screen.getByLabelText("Total de cuotas"), {
       target: { value: "6" },
     })
-    const lastMonthOfCurrentYear: Period = {
-      year: getCurrentPeriod().year,
-      month: MONTHS_PER_YEAR,
-    }
-
-    selectOption("Mes de la cuota", monthLabel(lastMonthOfCurrentYear))
 
     fireEvent.click(screen.getByRole("button", { name: "Guardar compra" }))
 
@@ -374,8 +349,8 @@ describe("compras con tarjeta desde Presupuesto", () => {
         p_quota_amount: 45_000,
         p_starting_installment: 3,
         p_total_installments: 6,
-        p_year: lastMonthOfCurrentYear.year,
-        p_month: lastMonthOfCurrentYear.month,
+        p_year: VIEWED_PERIOD.year,
+        p_month: VIEWED_PERIOD.month,
       })
     })
   })
@@ -514,8 +489,8 @@ describe("compras con tarjeta desde Presupuesto", () => {
   })
 })
 
-// RF-09: the quick entry works against the month the form imputes to, which
-// is the real current month unless the user picks a later one.
+// RF-09: the quick entry works against the viewed month, which is also the
+// month the purchase is imputed to.
 const CURRENT_PERIOD = getCurrentPeriod()
 
 type PurchaseFields = {
@@ -712,6 +687,75 @@ describe("compras con tarjeta desde Presupuesto: carga rápida (RF-09)", () => {
       expect(rpcMock).toHaveBeenCalled()
     })
     expect(screen.queryByText("¿Ya cargaste esta compra?")).toBeNull()
+  })
+})
+
+// Regression: the purchase used to land on the real current month whenever
+// the viewed month was earlier, or on the real year when it was later.
+describe("compras con tarjeta desde Presupuesto: mes de imputación", () => {
+  afterEach(() => {
+    cleanup()
+    vi.useRealTimers()
+  })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    scenario.occurrences = []
+    scenario.loadError = null
+    scenario.deleteError = null
+    scenario.rpcError = null
+
+    authMock.getSession.mockResolvedValue({
+      data: { session: createFakeSession() },
+      error: null,
+    })
+    authMock.onAuthStateChange.mockReturnValue({
+      data: { subscription: { unsubscribe: vi.fn() } },
+    })
+  })
+
+  const savePurchaseIn = async (period: Period) => {
+    renderBudgetPage(period)
+
+    await openPurchaseForm()
+
+    fillPurchase({
+      concept: "Notebook",
+      quotaAmount: "45000",
+      startingInstallment: "1",
+      totalInstallments: "3",
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar compra" }))
+  }
+
+  it("guarda en octubre la compra cargada desde octubre aunque hoy sea noviembre", async () => {
+    // Only Date is faked so React Query and waitFor keep their real timers.
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date(2026, 10, 15))
+
+    await savePurchaseIn({ year: 2026, month: 10 })
+
+    await waitFor(() => {
+      expect(rpcMock).toHaveBeenCalledWith(
+        "create_card_purchase",
+        expect.objectContaining({ p_year: 2026, p_month: 10 })
+      )
+    })
+  })
+
+  it("guarda en enero del año siguiente la compra cargada desde ese mes aunque hoy sea diciembre", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date(2026, 11, 15))
+
+    await savePurchaseIn({ year: 2027, month: 1 })
+
+    await waitFor(() => {
+      expect(rpcMock).toHaveBeenCalledWith(
+        "create_card_purchase",
+        expect.objectContaining({ p_year: 2027, p_month: 1 })
+      )
+    })
   })
 })
 
